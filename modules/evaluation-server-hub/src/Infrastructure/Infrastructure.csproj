@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+
+        <AssemblyName>FeatBit.EvaluationServer.Infrastructure</AssemblyName>
+        <PackageId>FeatBit.EvaluationServer.Infrastructure</PackageId>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Domain\Domain.csproj" />
+        <ProjectReference Include="..\DataStore\DataStore.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="AspNetCore.HealthChecks.Kafka" Version="8.0.1" />
+        <PackageReference Include="AspNetCore.HealthChecks.MongoDb" Version="9.0.0" />
+        <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+        <PackageReference Include="AspNetCore.HealthChecks.Redis" Version="9.0.0" />
+        <PackageReference Include="Confluent.Kafka" Version="2.5.3" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="9.0.5" />
+        <PackageReference Include="MongoDB.Driver" Version="3.4.0" />
+        <PackageReference Include="Npgsql" Version="9.0.3" />
+        <PackageReference Include="Npgsql.DependencyInjection" Version="9.0.3" />
+        <PackageReference Include="StackExchange.Redis" Version="2.8.37" />
+        <PackageReference Include="Dapper" Version="2.1.66" />
+    </ItemGroup>
+
+</Project>
