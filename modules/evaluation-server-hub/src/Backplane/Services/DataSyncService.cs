@@ -115,6 +115,7 @@ public class DataSyncService : IDataSyncService
         JsonElement segment,
         string[] affectedFlagIds)
     {
+
         if (edgeMessage.Type == ConnectionType.Client && edgeMessage.User == null)
         {
             throw new ArgumentException($"client sdk must have user info when sync data. Connection: {edgeMessage}");
