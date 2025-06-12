@@ -12,7 +12,7 @@ using DataStore.Persistence;
 using DataStore.Store;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Streaming.Consumers;
+//using Streaming.Consumers;
 using Infrastructure.BackplaneMesssages;
 using Infrastructure.Providers.Redis;
 using Streaming.Scaling.Service;
@@ -110,6 +110,7 @@ public static class StreamingBuilderExtensions
         services.AddSingleton<ISubscriptionService, SubscriptionService>();
         services.AddSingleton<IWebSocketService, WebSocketService>();
         services.AddHostedService<WebSocketService>();
+        services.AddHostedService<WebSocketShutdownService>();
 
         return builder;
     }

@@ -93,5 +93,29 @@ namespace Streaming.Scaling.Service
             Level = LogLevel.Information,
             Message = "Unsubscribing from channel: {Channel}")]
         public static partial void UnsubscribingFromChannel(this ILogger logger, string channel);
+
+        [LoggerMessage(
+            EventId = 16,
+            Level = LogLevel.Information,
+            Message = "WebSocket shutdown initiated - disconnecting {ConnectionCount} connections")]
+        public static partial void WebSocketShutdownInitiated(this ILogger logger, int connectionCount);
+
+        [LoggerMessage(
+            EventId = 17,
+            Level = LogLevel.Information,
+            Message = "WebSocket shutdown completed successfully")]
+        public static partial void WebSocketShutdownCompleted(this ILogger logger);
+
+        [LoggerMessage(
+            EventId = 18,
+            Level = LogLevel.Error,
+            Message = "Error during WebSocket shutdown")]
+        public static partial void WebSocketShutdownError(this ILogger logger, Exception exception);
+
+        [LoggerMessage(
+            EventId = 19,
+            Level = LogLevel.Debug,
+            Message = "Closing WebSocket connection {SubscriptionId} due to shutdown")]
+        public static partial void ClosingWebSocketConnection(this ILogger logger, string subscriptionId);
     }
 } 

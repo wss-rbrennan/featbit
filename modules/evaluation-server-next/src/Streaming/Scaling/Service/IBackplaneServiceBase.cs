@@ -17,6 +17,5 @@ namespace Streaming.Scaling.Service
 
         public Task HandleUnsubscribeAsync(string id, string channel);
 
-        public Task HandleSendMessageAsync(Message message);
     }
 }

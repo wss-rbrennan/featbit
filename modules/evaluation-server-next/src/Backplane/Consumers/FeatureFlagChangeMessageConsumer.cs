@@ -6,6 +6,8 @@ using Infrastructure.BackplaneMesssages;
 using Domain.Messages;
 using MongoDB.Driver.Core.Bindings;
 using System.Text.Json;
+using Infrastructure.Scaling.Types;
+using Domain.Shared;
 
 namespace Backplane.Consumers;
 
@@ -31,10 +33,19 @@ public class FeatureFlagChangeMessageConsumer : IMessageConsumer
 
         var payload = await _dataSyncService.GetFlagChangePayloadAsync(flag);
         var serverMessage = new ServerMessage(MessageTypes.DataSync, payload);
-        
-        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEdgeChannel(envId.ToString()).Replace("featbit-els-", "featbit:els:");
+        var serverMessageJson = JsonSerializer.Serialize(serverMessage, ReusableJsonSerializerOptions.Web);
 
-        await _channelPublisher.PublishAsync(channelId, serverMessage);
+        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEdgeChannel(envId.ToString()).Replace("featbit-els-edge-", "featbit:els:edge:");
+
+        var backplaneMessage = new Message
+        {
+            ChannelId = envId.ToString(),
+            Type = "server",
+            ChannelName = envId.ToString(),
+            MessageContent = JsonDocument.Parse(serverMessageJson).RootElement
+        };
+
+        await _channelPublisher.PublishAsync(channelId, backplaneMessage);
         
     }
 }

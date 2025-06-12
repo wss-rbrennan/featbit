@@ -29,5 +29,7 @@ namespace Streaming.Scaling.Service
         public Task BroadcastToSubscriberAsync(string subscriberId, string message);
 
         public Subscriptions GetSubscriptions();
+
+        public Task DisconnectAllAsync(WebSocketCloseStatus closeStatus = WebSocketCloseStatus.NormalClosure, string statusDescription = "Server shutdown");
     }
 }

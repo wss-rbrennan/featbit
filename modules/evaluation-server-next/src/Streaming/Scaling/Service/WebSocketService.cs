@@ -44,9 +44,31 @@ namespace Streaming.Scaling.Service
 
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
+            _logger.LogInformation("WebSocketService shutdown initiated - disconnecting all WebSocket connections");
+            
+            // Cancel the internal cancellation token to stop any ongoing operations
             _cancellationTokenSource.Cancel();
+            
+            // Disconnect all WebSocket connections gracefully
+            try
+            {
+                await _subscriptionService.DisconnectAllAsync(
+                    WebSocketCloseStatus.NormalClosure, 
+                    "Server is shutting down"
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while disconnecting WebSocket connections during shutdown");
+            }
+            
+            // Dispose the subscription logger timer
             _subscriptionLogger.Dispose();
+            
+            // Call base implementation
             await base.StopAsync(cancellationToken);
+            
+            _logger.LogInformation("WebSocketService shutdown completed");
         }
 
         // Interface requirement - but we'll use our new subscription approach
@@ -493,26 +515,5 @@ namespace Streaming.Scaling.Service
             await ctx.WebSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(messageJson)), WebSocketMessageType.Text, true, CancellationToken.None).ConfigureAwait(false);
         }
 
-        // TODO: REMOVE THIS METHOD IF NOT NEEDED
-        public async Task HandleSendMessageAsync(Message message)
-        {
-            _logger.LogDebug($"Handling send message request for Channel: {message.ChannelId}");
-            var messageJson = JsonSerializer.Serialize(new
-            {
-                type = "SEND_MESSAGE",
-                ChannelId = message.ChannelId,
-                message = message.MessageContent
-            });
-            _logger.LogDebug($"Publishing message to Redis: {messageJson}");
-            try
-            {
-                await _backplaneManager.PublishAsync(message.ChannelId, messageJson);
-                _logger.LogDebug($"Message published to Redis successfully");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Error publishing message to Redis: {ex}");
-            }
-        }
     }
 }
