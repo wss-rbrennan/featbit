@@ -82,8 +82,9 @@ namespace Backplane.Messages
                 ChannelName = envId,
                 MessageContent = JsonDocument.Parse(serverMessageJson).RootElement
             };
-           
-            var channelId = Infrastructure.BackplaneMesssages.Channels.GetEnvironmentChannel(envId);
+
+            // TODO: replace the backplane channel id for Redis channel, this should use a config value
+            var channelId = Infrastructure.BackplaneMesssages.Channels.GetBackplaneChannel(envId).Replace("featbit-els-backplane-", "featbit:els:bankplane:");
             await _channelMessageProducer.PublishAsync(channelId, backplaneMessage);
 
         }

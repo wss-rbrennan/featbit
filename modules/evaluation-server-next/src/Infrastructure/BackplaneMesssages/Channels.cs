@@ -8,21 +8,38 @@ namespace Infrastructure.BackplaneMesssages
 {
     public static class Channels
     {
-        private const string Namespace = "featbit-els-";
-        public const string EnvironmentPattern = Namespace + "*";
+        private const string EdgeNamespace = "featbit-els-edge-";
+        public const string EdgePattern = EdgeNamespace + "*";
 
-        public static string GetEnvironmentChannelPattern()
+        private const string BackplaneNamespace = "featbit-els-backplane-";
+        public const string BackplanePattern = BackplaneNamespace + "*";
+
+        public static string GetEdgeChannelPattern()
         {
-            return EnvironmentPattern;
+            return EdgePattern;
         }
 
-        public static string GetEnvironmentChannel(string environmentId)
+        public static string GetEdgeChannel(string environmentId)
         {
             if (string.IsNullOrWhiteSpace(environmentId))
             {
                 throw new ArgumentException("Environment ID cannot be null or empty.", nameof(environmentId));
             }
-            return Namespace + environmentId;
+            return EdgeNamespace + environmentId;
+        }
+
+        public static string GetBackplaneChannelPattern()
+        {
+            return BackplanePattern;
+        }
+
+        public static string GetBackplaneChannel(string environmentId)
+        {
+            if (string.IsNullOrWhiteSpace(environmentId))
+            {
+                throw new ArgumentException("Environment ID cannot be null or empty.", nameof(environmentId));
+            }
+            return BackplaneNamespace + environmentId;
         }
     }
 }

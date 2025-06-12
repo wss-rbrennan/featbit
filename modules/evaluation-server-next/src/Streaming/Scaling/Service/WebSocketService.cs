@@ -6,18 +6,20 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Domain.Shared;
+using Microsoft.Extensions.Hosting;
 
 namespace Streaming.Scaling.Service
 {
-    public class WebSocketService : IWebSocketService
+    public class WebSocketService : BackgroundService, IWebSocketService
     {
         private readonly IBackplaneManager _backplaneManager;
         private readonly ISubscriptionService _subscriptionService;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly Timer _subscriptionLogger;
         private readonly ILogger<WebSocketService> _logger;
-        private const string FEATBIT_ELS_PATTERN = "featbit:els:*";
-        private const string FEATBIT_ELS_PREFIX = "featbit:els:";
+        private const string FEATBIT_ELS_PREFIX = "featbit:els:edge:";
+        private const string FEATBIT_ELS_BACKPLANE_PREFIX = "featbit:els:backplane:";
+        private readonly Dictionary<string, bool> _subscribedChannels = new();
 
         public WebSocketService(ILogger<WebSocketService> logger,
                                 ISubscriptionService subscriptionService,
@@ -28,80 +30,216 @@ namespace Streaming.Scaling.Service
             _cancellationTokenSource = new CancellationTokenSource();
             _subscriptionLogger = new Timer(LogSubscriptions, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
             _logger = logger;
-            // Subscribe to all featbit:els:* channels
-            SubscribeToFeatbitChannels().ConfigureAwait(false);
+            _logger.LogInformation("WebSocketService initialized");
         }
 
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            // Keep the service running
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+            }
+        }
+
+        public override async Task StopAsync(CancellationToken cancellationToken)
+        {
+            _cancellationTokenSource.Cancel();
+            _subscriptionLogger.Dispose();
+            await base.StopAsync(cancellationToken);
+        }
+
+        // Interface requirement - but we'll use our new subscription approach
         public async Task SubscribeToFeatbitChannels()
         {
-            WebSocketServiceLogger.SettingUpSubscription(_logger, FEATBIT_ELS_PATTERN);
+            _logger.LogInformation("SubscribeToFeatbitChannels called - using per-connection subscription model");
+            // No-op as we now subscribe per connection
+        }
+
+        private async Task SubscribeToBackplaneChannel(string envId)
+        {
+            var backplaneChannel = $"{FEATBIT_ELS_BACKPLANE_PREFIX}{envId}";
+            var edgeChannel = $"{FEATBIT_ELS_PREFIX}{envId}";
+            
+            if (_subscribedChannels.ContainsKey(backplaneChannel) && _subscribedChannels.ContainsKey(edgeChannel))
+            {
+                _logger.LogInformation("Already subscribed to channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+                return;
+            }
+
+            _logger.LogInformation("Setting up subscriptions for channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
             try
             {
-                await _backplaneManager.SubscribeAsync(FEATBIT_ELS_PATTERN, async (message) =>
+                var subscriptionReady = new TaskCompletionSource<bool>();
+                
+                // Subscribe to backplane channel
+                await _backplaneManager.SubscribeAsync(backplaneChannel, async (message) =>
                 {
-                    WebSocketServiceLogger.ReceivedChannelMessage(_logger, FEATBIT_ELS_PATTERN, message);
-
-                    try
-                    {
-                        var parsedMessage = JsonSerializer.Deserialize<Infrastructure.Scaling.Types.Message>(message);
-
-                        if (parsedMessage?.ChannelId != null)
-                        {
-                            var rawContent = parsedMessage.MessageContent.GetRawText() ?? string.Empty;
-
-                            using var document = JsonDocument.Parse(rawContent);
-                            var root = document.RootElement;
-
-                            if (!root.TryGetProperty("messageType", out var messageType))
-                            {
-                                WebSocketServiceLogger.FailedToParseMessageOrChannelIdIsNull(_logger, message);
-                                return;
-                            }
-
-                            switch (messageType.GetString())
-                            {
-                                case "data-sync":
-                                    // Broadcast to all websocket connections subscribed to the channel
-                                    WebSocketServiceLogger.BroadcastToSubscribers(_logger, parsedMessage.ChannelId);
-                                    await _subscriptionService.BroadcastToSubscribersAsync(parsedMessage.ChannelId, rawContent);
-                                    break;
-                                default:
-                                    WebSocketServiceLogger.UnknownMessageType(_logger, messageType.GetString() ?? "unknown");
-                                    break;
-                            }
-                        }
-                        else
-                        {
-                            WebSocketServiceLogger.FailedToParseMessageOrChannelIdIsNull(_logger, message);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug($"Error processing Redis message: {ex}");
-                    }
+                    _logger.LogInformation("[SUBSCRIPTION CALLBACK] Received message from Redis backplane channel: {Channel}, Message: {Message}", backplaneChannel, message);
+                    await HandleRedisMessage(message, backplaneChannel, subscriptionReady);
                 });
-                _logger.LogDebug($"Successfully subscribed to Redis channels matching pattern: {FEATBIT_ELS_PATTERN}");
+
+                // Subscribe to edge channel
+                await _backplaneManager.SubscribeAsync(edgeChannel, async (message) =>
+                {
+                    _logger.LogInformation("[SUBSCRIPTION CALLBACK] Received message from Redis edge channel: {Channel}, Message: {Message}", edgeChannel, message);
+                    await HandleRedisMessage(message, edgeChannel, subscriptionReady);
+                });
+
+                _logger.LogInformation("Successfully set up subscription callbacks for channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+                _subscribedChannels[backplaneChannel] = true;
+                _subscribedChannels[edgeChannel] = true;
+                _logger.LogInformation("Marked channels as subscribed: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+
+                // Send a test message to verify the subscription
+                var testMessage = new Message
+                {
+                    Type = "server",
+                    ChannelId = envId,
+                    ChannelName = envId,
+                    MessageContent = JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        messageType = "test",
+                        data = new { timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }
+                    })).RootElement
+                };
+
+                _logger.LogInformation("Sending test message to verify subscription on channel: {Channel}", backplaneChannel);
+                await _backplaneManager.PublishAsync(backplaneChannel, JsonSerializer.Serialize(testMessage));
+
+                // Wait for the test message to be received (with timeout)
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                try
+                {
+                    await subscriptionReady.Task.WaitAsync(cts.Token);
+                    _logger.LogInformation("Subscription verified for channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogWarning("Timeout waiting for subscription verification on channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+                    throw new TimeoutException($"Subscription verification timed out for channels: {backplaneChannel}, {edgeChannel}");
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error setting up Redis subscription for pattern {FEATBIT_ELS_PATTERN}: {ex}");
-                WebSocketServiceLogger.ErrorProcessingMessage(_logger, FEATBIT_ELS_PATTERN, ex);
+                _logger.LogError(ex, "Error setting up subscriptions for channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+                throw;
             }
         }
 
-        public void LogSubscriptions(object? state)
+        private async Task HandleRedisMessage(string message, string channel, TaskCompletionSource<bool> subscriptionReady)
         {
-            _logger.LogTrace(JsonSerializer.Serialize(_subscriptionService.GetSubscriptions()));
+            try
+            {
+                var parsedMessage = JsonSerializer.Deserialize<Infrastructure.Scaling.Types.Message>(message);
+                _logger.LogInformation("[SUBSCRIPTION CALLBACK] Successfully parsed message: {ParsedMessage}", JsonSerializer.Serialize(parsedMessage));
+
+                if (parsedMessage?.ChannelId != null)
+                {
+                    var rawContent = parsedMessage.MessageContent.GetRawText() ?? string.Empty;
+                    _logger.LogInformation("[SUBSCRIPTION CALLBACK] Raw message content: {RawContent}", rawContent);
+
+                    using var document = JsonDocument.Parse(rawContent);
+                    var root = document.RootElement;
+
+                    // First try to get messageType from the root
+                    if (root.TryGetProperty("messageType", out var messageType))
+                    {
+                        var messageTypeStr = messageType.GetString();
+                        _logger.LogInformation("[SUBSCRIPTION CALLBACK] Found messageType in root: {MessageType}", messageTypeStr);
+                        
+                        // If this is a test message, mark the subscription as ready
+                        if (messageTypeStr == "test" && !subscriptionReady.Task.IsCompleted)
+                        {
+                            _logger.LogInformation("[SUBSCRIPTION CALLBACK] Received test message, marking subscription as ready");
+                            subscriptionReady.TrySetResult(true);
+                            return;
+                        }
+                        
+                        await HandleMessageType(messageTypeStr, parsedMessage.ChannelId, rawContent);
+                    }
+                    // Then try to get it from the nested message structure
+                    else if (root.TryGetProperty("message", out var messageElement))
+                    {
+                        _logger.LogInformation("[SUBSCRIPTION CALLBACK] Found message element in root, checking for nested messageType");
+                        if (messageElement.TryGetProperty("messageType", out var nestedMessageType))
+                        {
+                            var messageTypeStr = nestedMessageType.GetString();
+                            _logger.LogInformation("[SUBSCRIPTION CALLBACK] Found messageType in nested message: {MessageType}", messageTypeStr);
+                            
+                            // If this is a test message, mark the subscription as ready
+                            if (messageTypeStr == "test" && !subscriptionReady.Task.IsCompleted)
+                            {
+                                _logger.LogInformation("[SUBSCRIPTION CALLBACK] Received test message, marking subscription as ready");
+                                subscriptionReady.TrySetResult(true);
+                                return;
+                            }
+                            
+                            await HandleMessageType(messageTypeStr, parsedMessage.ChannelId, rawContent);
+                        }
+                        else if (messageElement.TryGetProperty("data", out var dataElement) && 
+                                dataElement.TryGetProperty("messageType", out var dataMessageType))
+                        {
+                            var messageTypeStr = dataMessageType.GetString();
+                            _logger.LogInformation("[SUBSCRIPTION CALLBACK] Found messageType in data element: {MessageType}", messageTypeStr);
+                            
+                            // If this is a test message, mark the subscription as ready
+                            if (messageTypeStr == "test" && !subscriptionReady.Task.IsCompleted)
+                            {
+                                _logger.LogInformation("[SUBSCRIPTION CALLBACK] Received test message, marking subscription as ready");
+                                subscriptionReady.TrySetResult(true);
+                                return;
+                            }
+                            
+                            await HandleMessageType(messageTypeStr, parsedMessage.ChannelId, rawContent);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("[SUBSCRIPTION CALLBACK] Could not find messageType in nested message structure. Message: {Message}", message);
+                            WebSocketServiceLogger.FailedToParseMessageOrChannelIdIsNull(_logger, message);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("[SUBSCRIPTION CALLBACK] Message does not contain messageType property or message element. Full message: {Message}", message);
+                        WebSocketServiceLogger.FailedToParseMessageOrChannelIdIsNull(_logger, message);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("[SUBSCRIPTION CALLBACK] Message or ChannelId is null. Full message: {Message}", message);
+                    WebSocketServiceLogger.FailedToParseMessageOrChannelIdIsNull(_logger, message);
+                }
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "[SUBSCRIPTION CALLBACK] Failed to parse message as JSON: {Message}", message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SUBSCRIPTION CALLBACK] Error processing Redis message: {Message}", message);
+            }
         }
 
         public async Task HandleConnectionAsync(ConnectionContext connection, CancellationToken token)
         {
+            _logger.LogInformation("Handling new WebSocket connection");
 
             var webSocket = connection.WebSocket;
+            var envId = connection.Connection.EnvId.ToString();
 
             WebSocketServiceLogger.NewWebSocketConnection(_logger);
             var id = _subscriptionService.AddSubscription(webSocket);
-            _subscriptionService.AddChannelToSubscription(id, connection.Connection.EnvId.ToString());
+            _logger.LogInformation("Created new subscription with ID: {Id} for environment: {EnvId}", id, envId);
+            
+            // Subscribe to the specific backplane channel for this environment
+            await SubscribeToBackplaneChannel(envId);
+            
+            // Add a small delay to ensure subscription is fully ready
+            await Task.Delay(100);
+            
+            _subscriptionService.AddChannelToSubscription(id, envId);
+            _logger.LogInformation("Added channel {Channel} to subscription {Id}", envId, id);
 
             WebSocketServiceLogger.CreatedSubscription(_logger, id);
             
@@ -111,79 +249,113 @@ namespace Streaming.Scaling.Service
             {
                 while (webSocket.State == WebSocketState.Open)
                 {
-                    _logger.LogDebug($"Waiting for message from client {id}...");
+                    _logger.LogDebug("Waiting for message from client {Id}...", id);
                     var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellationTokenSource.Token);
-                    //_logger.LogDebug($"Received message of type: {result.MessageType}, length: {result.Count}");
-                    //WebSocketServiceLogger.ReceivedMessage(_logger, result.MessageType.ToString(), result.Count);
 
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        _logger.LogDebug($"Client {id} requested close");
+                        _logger.LogInformation("Client {Id} requested close", id);
                         await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None);
                         break;
                     }
 
-                     var messageJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    _logger.LogDebug($"Received raw message from client {id}: {messageJson}");
+                    var messageJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    _logger.LogInformation("Received message from client {Id}: {Message}", id, messageJson);
 
                     try
                     {
-                        //var message = JsonSerializer.Deserialize<Message>(messageJson);// This needs to handle the messages
                         if (!String.IsNullOrEmpty(messageJson))
                         {
                             await HandleMessageAsync(id, connection, messageJson);
                         }
                         else
                         {
+                            _logger.LogWarning("Received empty message from client {Id}", id);
                             throw new JsonException("Failed to deserialize message from client");
                         }
                     }
                     catch (Exception ex)
                     {
+                        _logger.LogError(ex, "Error processing message from client {Id}: {Message}", id, messageJson);
                         WebSocketServiceLogger.ErrorProcessingMessageFromClient(_logger, id, ex);
                     }
                 }
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error handling WebSocket client {Id}", id);
                 WebSocketServiceLogger.ErrorHandlingWebSocketClient(_logger, id, ex);
             }
             finally
             {
                 if (webSocket.State == WebSocketState.Open)
                 {
+                    _logger.LogInformation("Closing WebSocket connection for client {Id}", id);
                     await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None);
                 }
+                _logger.LogInformation("Removing subscription {Id}", id);
                 _subscriptionService.RemoveSubscription(id);
             }
         }
 
+        private async Task HandleMessageType(string? messageType, string channelId, string rawContent)
+        {
+            if (string.IsNullOrEmpty(messageType))
+            {
+                _logger.LogWarning("Message type is null or empty");
+                return;
+            }
+
+            _logger.LogInformation("Processing message of type: {MessageType} for channel: {ChannelId}", messageType, channelId);
+
+            switch (messageType)
+            {
+                case "data-sync":
+                    _logger.LogInformation("Broadcasting data-sync message to channel: {ChannelId}", channelId);
+                    WebSocketServiceLogger.BroadcastToSubscribers(_logger, channelId);
+                    await _subscriptionService.BroadcastToSubscribersAsync(channelId, rawContent);
+                    _logger.LogInformation("Data-sync message broadcast complete");
+                    break;
+                case "test":
+                    _logger.LogInformation("Received test message on channel: {ChannelId}", channelId);
+                    break;
+                default:
+                    _logger.LogWarning("Unknown message type: {MessageType}", messageType);
+                    WebSocketServiceLogger.UnknownMessageType(_logger, messageType);
+                    break;
+            }
+        }
+
+        public void LogSubscriptions(object? state)
+        {
+            _logger.LogTrace(JsonSerializer.Serialize(_subscriptionService.GetSubscriptions()));
+        }
+
         public async Task HandleMessageAsync(string id, ConnectionContext ctx, string message)
         {
+            _logger.LogInformation("Handling message from client {Id}: {Message}", id, message);
             WebSocketServiceLogger.HandlingMessageContent(_logger, JsonSerializer.Serialize(message));
 
             using var document = JsonDocument.Parse(message);
             var root = document.RootElement;
 
-            // get the message type
             if (!root.TryGetProperty("messageType", out var messageType))
             {
-                {
-                    throw new InvalidDataException("invalid message type");
-                }
+                _logger.LogWarning("Invalid message format - missing messageType. Message: {Message}", message);
+                throw new InvalidDataException("invalid message type");
             }
 
             var envId = ctx.Connection.EnvId.ToString();
-            var channelId = FEATBIT_ELS_PREFIX + ctx.Connection.EnvId.ToString();
+            var channelId = FEATBIT_ELS_PREFIX + envId;
+            _logger.LogInformation("Processing message for environment {EnvId} on channel {ChannelId}", envId, channelId);
 
             switch (messageType.ToString())
             {
-
                 case "data-sync":
-
-
+                    _logger.LogInformation("Processing data-sync message for environment {EnvId}", envId);
                     var messageContext = CreateMessageContextTransport(ctx, JsonDocument.Parse(message).RootElement);
                     var messageContextJson = JsonSerializer.Serialize(messageContext, JsonSerializerOptions.Web);
+                    _logger.LogInformation("Created message context: {MessageContext}", messageContextJson);
 
                     var backplaneMessage = new Message
                     {
@@ -194,14 +366,19 @@ namespace Streaming.Scaling.Service
                     };
 
                     var serverMessageJson = JsonSerializer.Serialize<Message>(backplaneMessage, JsonSerializerOptions.Web);
+                    _logger.LogInformation("Publishing to backplane channel {ChannelId}: {Message}", channelId, serverMessageJson);
 
                     await _backplaneManager.PublishAsync(channelId, serverMessageJson);
-
+                    _logger.LogInformation("Successfully published message to backplane");
                     break;
+
                 case "ping":
+                    _logger.LogInformation("Handling ping message from client {Id}", id);
                     await HandlePingMessage(ctx);
                     break;
+
                 default:
+                    _logger.LogWarning("Unknown message type: {MessageType}", messageType.ToString());
                     WebSocketServiceLogger.UnknownMessageType(_logger, messageType.ToString());
                     break;
             }
@@ -304,7 +481,6 @@ namespace Streaming.Scaling.Service
                 _logger.LogError($"Error publishing data sync message to Redis: {ex}");
             }
         }
-
 
         public async Task HandlePingMessage(ConnectionContext ctx)
         {

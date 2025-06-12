@@ -34,7 +34,7 @@ namespace Infrastructure.Providers.Redis
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var pattern = Infrastructure.BackplaneMesssages.Channels.GetEnvironmentChannelPattern().Replace("featbit-els-", "featbit:els:");
+            var pattern = Infrastructure.BackplaneMesssages.Channels.GetEdgeChannelPattern().Replace("featbit-els-edge-", "featbit:els:edge:");
             var channel = new RedisChannel(pattern, RedisChannel.PatternMode.Pattern);
             var queue = await _redisClient.GetSubscriber().SubscribeAsync(channel);
 

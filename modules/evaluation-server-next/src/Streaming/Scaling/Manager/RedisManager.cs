@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace Streaming.Scaling.Manager
 {
@@ -70,45 +71,81 @@ namespace Streaming.Scaling.Manager
 
         public async Task<long> PublishAsync(string channel, string message)
         {
-            _logger.LogDebug($"Publishing message to Redis channel '{channel}': {message}");
+            _logger.LogInformation("Publishing message to Redis channel: {Channel}", channel);
             try
             {
                 if (!_redis.IsConnected)
                 {
-                    _logger.LogDebug("Redis not connected, attempting to reconnect...");
+                    _logger.LogWarning("Redis not connected, attempting to reconnect...");
                     await ConnectAsync();
                 }
-                var subscribers = await _subscriber.PublishAsync(channel, message);
-                _logger.LogDebug($"Message published successfully. Number of subscribers: {subscribers}");
-                return subscribers;
+
+                var redisChannel = new RedisChannel(channel, RedisChannel.PatternMode.Literal);
+                var subscriberCount = await _subscriber.PublishAsync(redisChannel, message);
+                _logger.LogInformation("Published message to Redis channel {Channel}, received by {Count} subscribers", channel, subscriberCount);
+                return subscriberCount;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error publishing message to Redis: {ex}");
+                _logger.LogError(ex, "Error publishing to Redis channel: {Channel}", channel);
                 throw;
             }
         }
 
         public async Task SubscribeAsync(string channel, Action<string> callback)
         {
-            _logger.LogDebug($"Subscribing to Redis channel: {channel}");
+            _logger.LogInformation("Setting up Redis subscription for channel: {Channel}", channel);
             try
             {
                 if (!_redis.IsConnected)
                 {
-                    _logger.LogDebug("Redis not connected, attempting to reconnect...");
+                    _logger.LogWarning("Redis not connected, attempting to reconnect...");
                     await ConnectAsync();
                 }
-                await _subscriber.SubscribeAsync(channel, (_, value) =>
+
+                // Check if this is a pattern subscription
+                bool isPattern = channel.Contains("*");
+                var redisChannel = isPattern 
+                    ? new RedisChannel(channel, RedisChannel.PatternMode.Pattern)
+                    : new RedisChannel(channel, RedisChannel.PatternMode.Literal);
+
+                _logger.LogInformation("Setting up Redis subscription for channel: {Channel} (Pattern: {IsPattern})", channel, isPattern);
+                
+                // Subscribe using the correct pattern mode
+                await _subscriber.SubscribeAsync(redisChannel, (_, value) =>
                 {
-                    _logger.LogDebug($"Received message from Redis channel '{channel}': {value}");
-                    callback(value);
+                    _logger.LogInformation("Received message from Redis channel '{Channel}': {Message}", channel, value);
+                    try
+                    {
+                        callback(value);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error in callback for Redis channel {Channel}", channel);
+                    }
                 });
-                _logger.LogDebug($"Successfully subscribed to Redis channel: {channel}");
+                
+                _logger.LogInformation("Successfully subscribed to Redis channel: {Channel} (Pattern: {IsPattern})", channel, isPattern);
+
+                // Verify subscription with a properly formatted test message
+                var testMessage = new
+                {
+                    type = "server",
+                    channelId = "test",
+                    channelName = "test",
+                    message = new
+                    {
+                        messageType = "test",
+                        data = new { timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }
+                    }
+                };
+                var testMessageJson = JsonSerializer.Serialize(testMessage);
+                var subscriptionCount = await _subscriber.PublishAsync(redisChannel, testMessageJson);
+                _logger.LogInformation("Subscription verification - published test message to {Channel}, received by {Count} subscribers", channel, subscriptionCount);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error subscribing to Redis channel: {ex}");
+                _logger.LogError(ex, "Error subscribing to Redis channel: {Channel}", channel);
                 throw;
             }
         }

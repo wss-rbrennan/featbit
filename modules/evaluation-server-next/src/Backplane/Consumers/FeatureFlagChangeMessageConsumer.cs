@@ -32,7 +32,7 @@ public class FeatureFlagChangeMessageConsumer : IMessageConsumer
         var payload = await _dataSyncService.GetFlagChangePayloadAsync(flag);
         var serverMessage = new ServerMessage(MessageTypes.DataSync, payload);
         
-        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEnvironmentChannel(envId.ToString()).Replace("featbit-els-", "featbit:els:");
+        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEdgeChannel(envId.ToString()).Replace("featbit-els-", "featbit:els:");
 
         await _channelPublisher.PublishAsync(channelId, serverMessage);
         

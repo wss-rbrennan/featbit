@@ -92,7 +92,7 @@ public class DataSyncMessageHandler : IMessageHandler
         // push change messages to sdk
         var envId = ctx.Connection.Connection.EnvId.ToString();
 
-        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEnvironmentChannel(envId.ToString()).Replace("featbit-els-", "featbit:els:");
+        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEdgeChannel(envId.ToString()).Replace("featbit-els-", "featbit:els:");
 
         await _channelPublisher.PublishAsync(channelId, message);
         //await _producer.PublishAsync(channelId, serverMessage, cancellationToken);

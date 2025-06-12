@@ -64,7 +64,7 @@ public class SegmentChangeMessageConsumer : IMessageConsumer
         //var serverMessage = new ServerMessage(MessageTypes.DataSync, payload);
 
 
-        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEnvironmentChannel(envId.ToString()).Replace("featbit-els-", "featbit:els:");
+        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEdgeChannel(envId.ToString()).Replace("featbit-els-", "featbit:els:");
 
         //await _channelPublisher.PublishAsync(channelId, serverMessage);
         // TODO: Publish the response message to the backplane channel

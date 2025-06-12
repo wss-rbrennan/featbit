@@ -109,6 +109,7 @@ public static class StreamingBuilderExtensions
         services.AddSingleton<IBackplaneManager, RedisManager>();
         services.AddSingleton<ISubscriptionService, SubscriptionService>();
         services.AddSingleton<IWebSocketService, WebSocketService>();
+        services.AddHostedService<WebSocketService>();
 
         return builder;
     }
