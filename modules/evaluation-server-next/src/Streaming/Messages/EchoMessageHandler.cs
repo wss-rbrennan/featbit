@@ -1,17 +1,17 @@
-using Infrastructure.Protocol;
+//using Infrastructure.Protocol;
 
-namespace Streaming.Messages;
+//namespace Streaming.Messages;
 
-public class EchoMessageHandler : IMessageHandler
-{
-    public string Type => MessageTypes.Echo;
+//public class EchoMessageHandler : IMessageHandler
+//{
+//    public string Type => MessageTypes.Echo;
 
-    public async Task HandleAsync(MessageContext ctx)
-    {
-        var connection = ctx.Connection;
-        var message = new ServerMessage(MessageTypes.Echo, ctx.Data);
-        var token = ctx.CancellationToken;
+//    public async Task HandleAsync(MessageContext ctx)
+//    {
+//        var connection = ctx.Connection;
+//        var message = new ServerMessage(MessageTypes.Echo, ctx.Data);
+//        var token = ctx.CancellationToken;
 
-        await connection.SendAsync(message, token);
-    }
-}
+//        await connection.SendAsync(message, token);
+//    }
+//}

@@ -2,7 +2,6 @@ using Confluent.Kafka;
 using Domain.Messages;
 using Domain.Shared;
 using Infrastructure;
-using Infrastructure.Caches;
 using Infrastructure.MQ;
 using Infrastructure.MQ.Kafka;
 using Infrastructure.MQ.Postgres;

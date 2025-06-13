@@ -33,9 +33,9 @@ public static class StreamingServiceCollectionExtensions
         services.AddSingleton<IRequestValidator, RequestValidator>();
 
         // services
-        services
+        //services
             //.AddEvaluator()
-            .AddTransient<IDataSyncService, DataSyncService>();
+            //.AddTransient<IDataSyncService, DataSyncService>();
         if (options.SupportedTypes.Contains(ConnectionType.RelayProxy))
         {
             services.AddTransient<IRelayProxyService, RelayProxyService>();
@@ -47,9 +47,9 @@ public static class StreamingServiceCollectionExtensions
         // message handlers
         services
             .AddSingleton<MessageDispatcher>()
-            .AddTransient<IMessageHandler, PingMessageHandler>()
-            .AddTransient<IMessageHandler, EchoMessageHandler>()
-            .AddTransient<IMessageHandler, DataSyncMessageHandler>();
+            .AddTransient<IMessageHandler, PingMessageHandler>();
+            //.AddTransient<IMessageHandler, EchoMessageHandler>();
+            //.AddTransient<IMessageHandler, DataSyncMessageHandler>();
 
         return new StreamingBuilder(services);
     }

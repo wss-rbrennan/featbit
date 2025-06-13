@@ -1,21 +1,21 @@
-using System.Text.Json;
-using Domain.EndUsers;
-using Infrastructure.Protocol;
-using Infrastructure.Connections;
+//using System.Text.Json;
+//using Domain.EndUsers;
+//using Infrastructure.Protocol;
+//using Infrastructure.Connections;
 
-namespace Streaming.Services;
+//namespace Streaming.Services;
 
-public interface IDataSyncService
-{
-    Task<object> GetPayloadAsync(ConnectionContext connectionContext, DataSyncMessage message);
+//public interface IDataSyncService
+//{
+//    Task<object> GetPayloadAsync(ConnectionContext connectionContext, DataSyncMessage message);
 
-    //Task<ClientSdkPayload> GetClientSdkPayloadAsync(Guid envId, EndUser user, long timestamp);
+//    //Task<ClientSdkPayload> GetClientSdkPayloadAsync(Guid envId, EndUser user, long timestamp);
 
-    Task<ServerSdkPayload> GetServerSdkPayloadAsync(Guid envId, long timestamp);
+//    Task<ServerSdkPayload> GetServerSdkPayloadAsync(Guid envId, long timestamp);
 
-    Task<object> GetRelayProxyPayloadAsync(IEnumerable<Guid> envIds, long timestamp);
+//    Task<object> GetRelayProxyPayloadAsync(IEnumerable<Guid> envIds, long timestamp);
 
-    Task<object> GetFlagChangePayloadAsync(Connection connection, JsonElement flag);
+//    Task<object> GetFlagChangePayloadAsync(Connection connection, JsonElement flag);
 
-    Task<object> GetSegmentChangePayloadAsync(Connection connection, JsonElement segment, string[] affectedFlagIds);
-}
+//    Task<object> GetSegmentChangePayloadAsync(Connection connection, JsonElement segment, string[] affectedFlagIds);
+//}
