@@ -106,43 +106,4 @@ public static class StreamingBuilderExtensions
         return builder;
     }
 
-    public static IStreamingBuilder UseStore(this IStreamingBuilder builder, IConfiguration configuration)
-    {
-        var services = builder.Services;
-
-        //var dbProvider = configuration.GetDbProvider();
-        //switch (dbProvider.Name)
-        //{
-        //    case DbProvider.Fake:
-        //        AddFake();
-        //        break;
-        //    case DbProvider.MongoDb:
-        //        AddMongoDb();
-        //        break;
-        //    case DbProvider.Postgres:
-        //        AddPostgres();
-        //        break;
-        //}
-
-        var cacheProvider = configuration.GetCacheProvider();
-        switch (cacheProvider)
-        {
-            case CacheProvider.Redis:
-                AddRedis();
-                break;
-
-            case CacheProvider.None:
-                // use db store if no cache provider is specified
-                services.AddSingleton<IStore>(x => x.GetRequiredService<IDbStore>());
-                break;
-        }
-
-        return builder;
-
-        void AddRedis()
-        {
-            services.AddSingleton<IChannelProducer, RedisChannelProducer>();
-            services.AddHostedService<RedisChannelConsumer>();
-        }
-    }
 }
