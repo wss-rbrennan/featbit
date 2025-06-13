@@ -5,8 +5,6 @@ using Domain.Messages;
 using Infrastructure;
 using Infrastructure.Providers;
 using Infrastructure.Providers.Redis;
-//using Infrastructure.Scaling.Manager;
-//using Infrastructure.Scaling.Service;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -50,13 +48,7 @@ namespace Backplane.DependencyInjection
                 services.AddSingleton<IServiceIdentityProvider, ServiceIdentityProvider>();
                 services.AddSingleton<IMessageFactory, MessageFactory>();
 
-                //services.AddSingleton<IBackplaneManager, RedisManager>();
                 services.AddSingleton<IDataSyncService, DataSyncService>();
-                //services.AddSingleton<ISubscriptionService, SubscriptionService>();
-                //services.AddSingleton<IHubService, HubService>();
-                //services.AddSingleton<IChannelConsumer, EnvironmentRequestConsumer>();
-                //services.AddSingleton<ISubscriptionService, SubscriptionService>();
-                //services.AddSingleton<IHubService, HubService>();
             }
 
             void AddNone()
@@ -66,9 +58,6 @@ namespace Backplane.DependencyInjection
 
             void AddRedis(IConfiguration config)
             {
-                //var connectionString = config.GetRedisConnectionString();
-
-
                 services.AddSingleton<IChannelProducer, RedisChannelProducer>();
                 services.AddSingleton<IMessageProducer, RedisMessageProducer>();
                 services.AddHostedService<RedisChannelConsumer>();

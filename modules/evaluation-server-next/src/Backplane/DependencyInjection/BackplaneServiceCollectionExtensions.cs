@@ -12,7 +12,6 @@ using Npgsql;
 using DataStore.Caches.Redis;
 using IRedisClient = DataStore.Caches.Redis.IRedisClient;
 using Infrastructure.BackplaneMesssages;
-//using Infrastructure.Backplane
 using Microsoft.Extensions.Configuration;
 using Infrastructure.Scaling.Handlers;
 

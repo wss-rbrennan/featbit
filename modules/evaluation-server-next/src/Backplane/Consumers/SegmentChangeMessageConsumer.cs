@@ -1,6 +1,4 @@
 using Infrastructure.Channels;
-//using Backplane.Connections;
-//using Backplane.EdgeConnections;
 using Backplane.Messages;
 using Infrastructure.Protocol;
 using Backplane.Services;
@@ -8,7 +6,6 @@ using Domain.Messages;
 using Domain.Shared;
 using Infrastructure.Scaling.Service;
 using Infrastructure.Scaling.Types;
-//using Infrastructure.Scaling.Manager;
 using System.Text.Json;
 
 namespace Backplane.Consumers;
