@@ -47,8 +47,6 @@ namespace Infrastructure.Providers.Redis
 
             async Task HandleMessageAsync(ChannelMessage channelMessage)
             {
-                
-
                 try
                 {
                     var theChannel = channelMessage.Channel;
@@ -65,19 +63,22 @@ namespace Infrastructure.Providers.Redis
 
                     var message = JsonSerializer.Deserialize<Message>(channelMessage.Message.ToString(), JsonSerializerOptions.Web);
 
+                    // Log correlation information if available
+                    if (!string.IsNullOrEmpty(message.SenderId) || !string.IsNullOrEmpty(message.CorrelationId))
+                    {
+                        _logger.LogInformation("Hub processing message from {ServiceType} - SenderId: {SenderId}, CorrelationId: {CorrelationId}, Channel: {Channel}",
+                            message.ServiceType ?? "unknown", message.SenderId, message.CorrelationId, theChannel);
+                    }
+
                     var messageContext = JsonSerializer.Deserialize<MessageContext>(message.MessageContent, JsonSerializerOptions.Web);
 
-                    
                     var messageType = messageContext.Data.GetProperty("messageType");
-                                     
 
                     if (!_handlers.TryGetValue(messageType.ToString(), out var handler))
                     {
-                        Log.NoHandlerForChannel(_logger, channel);
+                        Log.NoHandlerForChannel(_logger, theChannel);
                         return;
                     }
-
-                    
 
                     await handler.HandleAsync(messageContext);
 
@@ -86,7 +87,6 @@ namespace Infrastructure.Providers.Redis
                 catch (Exception ex)
                 {
                     Log.ErrorHandlingChannelMessage(_logger, channelMessage.Message.ToString(), ex);
-
                 }
             }
         }

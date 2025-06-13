@@ -8,6 +8,7 @@ using Infrastructure.Scaling.Handlers;
 using Infrastructure.Connections;
 using Infrastructure.Protocol;
 using Infrastructure.Scaling.Types;
+using Infrastructure.Scaling.Service;
 using MongoDB.Bson;
 using System;
 using System.Collections.Generic;
@@ -26,20 +27,25 @@ namespace Backplane.Messages
         private readonly IDataSyncService _service;
         private readonly IChannelProducer _channelMessageProducer;
         private readonly IMessageProducer _producer;
+        private readonly IMessageFactory _messageFactory;
+        private readonly IServiceIdentityProvider _serviceIdentityProvider;
 
         public DataSyncMessageHandler(
             IDataSyncService service,
             IChannelProducer channelMessageProducer,
-            IMessageProducer producer)
+            IMessageProducer producer,
+            IMessageFactory messageFactory,
+            IServiceIdentityProvider serviceIdentityProvider)
         {
             _service = service;
             _channelMessageProducer = channelMessageProducer;
             _producer = producer;
+            _messageFactory = messageFactory;
+            _serviceIdentityProvider = serviceIdentityProvider;
         }
 
         public async Task HandleAsync(MessageContext ctx)
         {
-
             var connectionContext = ctx.Connection;
 
             var message = ctx.Data.Deserialize<DataSyncMessage>(ReusableJsonSerializerOptions.Web);
@@ -70,23 +76,28 @@ namespace Backplane.Messages
             var payload = await _service.GetPayloadAsync(connectionContext, message);
             var serverMessage = new ServerMessage(MessageTypes.DataSync, payload);
 
-
             var serverMessageJson = JsonSerializer.Serialize<ServerMessage>(serverMessage, JsonSerializerOptions.Web);
-
             var envId = connectionContext.Connection.EnvId.ToString();
 
-            var backplaneMessage = new Message
-            {
-                ChannelId = envId,
-                Type = "server",
-                ChannelName = envId,
-                MessageContent = JsonDocument.Parse(serverMessageJson).RootElement
-            };
+            // Check if this is a response to an Edge message (has correlation context)
+            // For now, we'll create a new message since we don't have the original Edge message context
+            // In a full implementation, you'd want to extract the original correlation ID from the context
+            var backplaneMessage = _messageFactory.CreateMessage(
+                type: "server",
+                channelId: envId,
+                channelName: envId,
+                messageContent: JsonDocument.Parse(serverMessageJson).RootElement,
+                senderId: _serviceIdentityProvider.ServiceId, // Hub uses its service ID
+                serviceType: ServiceTypes.Hub
+            );
 
             // TODO: replace the backplane channel id for Redis channel, this should use a config value
             var channelId = Infrastructure.BackplaneMesssages.Channels.GetBackplaneChannel(envId).Replace("featbit-els-backplane-", "featbit:els:backplane:");
+            
+            // Log the message creation with correlation info
+            Console.WriteLine($"Hub creating data-sync response - ServiceType: {backplaneMessage.ServiceType}, SenderId: {backplaneMessage.SenderId}, CorrelationId: {backplaneMessage.CorrelationId}");
+            
             await _channelMessageProducer.PublishAsync(channelId, backplaneMessage);
-
         }
     }
 }

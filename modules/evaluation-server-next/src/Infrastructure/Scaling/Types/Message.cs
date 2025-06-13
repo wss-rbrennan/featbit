@@ -17,5 +17,13 @@ namespace Infrastructure.Scaling.Types
         [JsonPropertyName("message")]
         public JsonElement MessageContent { get; set; }
 
+        [JsonPropertyName("senderId")]
+        public string? SenderId { get; set; }
+
+        [JsonPropertyName("correlationId")]
+        public string? CorrelationId { get; set; }
+
+        [JsonPropertyName("serviceType")]
+        public string? ServiceType { get; set; }
     }
 }

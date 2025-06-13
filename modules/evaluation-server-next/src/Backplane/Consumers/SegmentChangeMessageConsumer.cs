@@ -6,6 +6,8 @@ using Infrastructure.Protocol;
 using Backplane.Services;
 using Domain.Messages;
 using Domain.Shared;
+using Infrastructure.Scaling.Service;
+using Infrastructure.Scaling.Types;
 //using Infrastructure.Scaling.Manager;
 using System.Text.Json;
 
@@ -16,14 +18,20 @@ public class SegmentChangeMessageConsumer : IMessageConsumer
     public string Topic => Topics.SegmentChange;
 
     private readonly IDataSyncService _dataSyncService;
-
     private readonly IChannelPublisher _channelPublisher;
+    private readonly IMessageFactory _messageFactory;
+    private readonly IServiceIdentityProvider _serviceIdentityProvider;
 
-
-    public SegmentChangeMessageConsumer(IDataSyncService dataSyncService, IChannelPublisher channelPublisher)
+    public SegmentChangeMessageConsumer(
+        IDataSyncService dataSyncService, 
+        IChannelPublisher channelPublisher,
+        IMessageFactory messageFactory,
+        IServiceIdentityProvider serviceIdentityProvider)
     {
         _dataSyncService = dataSyncService;
         _channelPublisher = channelPublisher;
+        _messageFactory = messageFactory;
+        _serviceIdentityProvider = serviceIdentityProvider;
     }
 
     public async Task HandleAsync(string message, CancellationToken cancellationToken)
@@ -43,32 +51,41 @@ public class SegmentChangeMessageConsumer : IMessageConsumer
         var flagIdsList = flagIds.Select(Guid.Parse);
 
         var id = segment.GetProperty("envId").ToString();
-        var secret = new Secret();
-        //var type = ConnectionType.Server; // Assuming this is a server-side change message
-
-       //var type = segment.TryGetProperty("type", out var typeProperty) 
-       //     ? typeProperty.GetString() 
-       //     : ConnectionType.Server; // Default to Server if not specified
-
-        //var version = segment.TryGetProperty("version", out var versionProperty)
-        //    ? versionProperty.GetString()
-        //    : EdgeConnectionVersion.V2; // Default to V2 if not specified
-
         var connectAt = segment.TryGetProperty("connectAt", out var connectAtProperty) 
             ? connectAtProperty.GetInt64() 
             : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(); // Default to current time if not specified
         
-        //var edgeMessage = new EdgeMessage(id, secret, type, version, connectAt, flagIdsList);
+        // Create a basic payload for segment change notification
+        var payload = new
+        {
+            messageType = "segment-change",
+            data = new
+            {
+                envId = envId,
+                segmentId = segment.GetProperty("id").GetString(),
+                affectedFlagIds = flagIds,
+                timestamp = connectAt
+            }
+        };
 
-        //var payload = await _dataSyncService.GetSegmentChangePayloadAsync(edgeMessage, segment, flagIds);
-        //var serverMessage = new ServerMessage(MessageTypes.DataSync, payload);
+        var serverMessage = new ServerMessage(MessageTypes.DataSync, payload);
+        var serverMessageJson = JsonSerializer.Serialize(serverMessage, ReusableJsonSerializerOptions.Web);
 
+        var channelId = Infrastructure.BackplaneMesssages.Channels.GetBackplaneChannel(envId.ToString()).Replace("featbit-els-backplane-", "featbit:els:backplane:");
 
-        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEdgeChannel(envId.ToString()).Replace("featbit-els-", "featbit:els:");
+        // Use MessageFactory to create message with proper correlation and sender IDs
+        var backplaneMessage = _messageFactory.CreateMessage(
+            type: "server",
+            channelId: envId.ToString(),
+            channelName: envId.ToString(),
+            messageContent: JsonDocument.Parse(serverMessageJson).RootElement,
+            senderId: _serviceIdentityProvider.ServiceId, // Hub uses its service ID for segment change notifications
+            serviceType: ServiceTypes.Hub
+        );
 
-        //await _channelPublisher.PublishAsync(channelId, serverMessage);
-        // TODO: Publish the response message to the backplane channel
-        //await connection.SendAsync(serverMessage, cancellationToken);
+        // Log the message creation with correlation info
+        Console.WriteLine($"Hub sending segment change notification to Edge - ServiceType: {backplaneMessage.ServiceType}, SenderId: {backplaneMessage.SenderId}, CorrelationId: {backplaneMessage.CorrelationId}, EnvId: {envId}");
 
+        await _channelPublisher.PublishAsync(channelId, backplaneMessage);
     }
 }

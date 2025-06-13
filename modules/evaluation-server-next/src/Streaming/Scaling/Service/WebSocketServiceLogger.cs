@@ -117,5 +117,23 @@ namespace Streaming.Scaling.Service
             Level = LogLevel.Debug,
             Message = "Closing WebSocket connection {SubscriptionId} due to shutdown")]
         public static partial void ClosingWebSocketConnection(this ILogger logger, string subscriptionId);
+
+        [LoggerMessage(
+            EventId = 20,
+            Level = LogLevel.Information,
+            Message = "Message created with ServiceType: {ServiceType}, SenderId: {SenderId} and CorrelationId: {CorrelationId}")]
+        public static partial void MessageCreatedWithCorrelation(this ILogger logger, string? serviceType, string? senderId, string? correlationId);
+
+        [LoggerMessage(
+            EventId = 21,
+            Level = LogLevel.Information,
+            Message = "Processing message from ServiceType: {ServiceType}, SenderId: {SenderId} with CorrelationId: {CorrelationId}")]
+        public static partial void ProcessingMessageWithCorrelation(this ILogger logger, string? serviceType, string? senderId, string? correlationId);
+
+        [LoggerMessage(
+            EventId = 22,
+            Level = LogLevel.Debug,
+            Message = "WebSocket subscription {SubscriptionId} sending message to channel {ChannelId}")]
+        public static partial void WebSocketSendingMessage(this ILogger logger, string subscriptionId, string channelId);
     }
 } 

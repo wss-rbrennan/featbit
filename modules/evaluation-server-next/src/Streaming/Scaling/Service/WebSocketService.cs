@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using Domain.Shared;
 using Microsoft.Extensions.Hosting;
+using Infrastructure.Scaling.Service;
 
 namespace Streaming.Scaling.Service
 {
@@ -14,6 +15,8 @@ namespace Streaming.Scaling.Service
     {
         private readonly IBackplaneManager _backplaneManager;
         private readonly ISubscriptionService _subscriptionService;
+        private readonly IMessageFactory _messageFactory;
+        private readonly IServiceIdentityProvider _serviceIdentityProvider;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private readonly Timer _subscriptionLogger;
         private readonly ILogger<WebSocketService> _logger;
@@ -23,14 +26,18 @@ namespace Streaming.Scaling.Service
 
         public WebSocketService(ILogger<WebSocketService> logger,
                                 ISubscriptionService subscriptionService,
-                                IBackplaneManager backplaneManager)
+                                IBackplaneManager backplaneManager,
+                                IMessageFactory messageFactory,
+                                IServiceIdentityProvider serviceIdentityProvider)
         {
             _backplaneManager = backplaneManager;
             _subscriptionService = subscriptionService;
+            _messageFactory = messageFactory;
+            _serviceIdentityProvider = serviceIdentityProvider;
             _cancellationTokenSource = new CancellationTokenSource();
             _subscriptionLogger = new Timer(LogSubscriptions, null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
             _logger = logger;
-            _logger.LogInformation("WebSocketService initialized");
+            _logger.LogInformation("WebSocketService initialized with service ID: {ServiceId}", _serviceIdentityProvider.ServiceId);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -81,50 +88,42 @@ namespace Streaming.Scaling.Service
         private async Task SubscribeToBackplaneChannel(string envId)
         {
             var backplaneChannel = $"{FEATBIT_ELS_BACKPLANE_PREFIX}{envId}";
-            var edgeChannel = $"{FEATBIT_ELS_PREFIX}{envId}";
             
-            if (_subscribedChannels.ContainsKey(backplaneChannel) && _subscribedChannels.ContainsKey(edgeChannel))
+            if (_subscribedChannels.ContainsKey(backplaneChannel))
             {
-                _logger.LogInformation("Already subscribed to channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+                _logger.LogInformation("Already subscribed to backplane channel: {BackplaneChannel}", backplaneChannel);
                 return;
             }
 
-            _logger.LogInformation("Setting up subscriptions for channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+            _logger.LogInformation("Setting up subscription for backplane channel: {BackplaneChannel}", backplaneChannel);
             try
             {
                 var subscriptionReady = new TaskCompletionSource<bool>();
                 
-                // Subscribe to backplane channel
+                // Subscribe to backplane channel only - Edge service listens to backplane, publishes to edge
                 await _backplaneManager.SubscribeAsync(backplaneChannel, async (message) =>
                 {
                     _logger.LogInformation("[SUBSCRIPTION CALLBACK] Received message from Redis backplane channel: {Channel}, Message: {Message}", backplaneChannel, message);
                     await HandleRedisMessage(message, backplaneChannel, subscriptionReady);
                 });
 
-                // Subscribe to edge channel
-                await _backplaneManager.SubscribeAsync(edgeChannel, async (message) =>
-                {
-                    _logger.LogInformation("[SUBSCRIPTION CALLBACK] Received message from Redis edge channel: {Channel}, Message: {Message}", edgeChannel, message);
-                    await HandleRedisMessage(message, edgeChannel, subscriptionReady);
-                });
-
-                _logger.LogInformation("Successfully set up subscription callbacks for channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+                _logger.LogInformation("Successfully set up subscription callback for backplane channel: {BackplaneChannel}", backplaneChannel);
                 _subscribedChannels[backplaneChannel] = true;
-                _subscribedChannels[edgeChannel] = true;
-                _logger.LogInformation("Marked channels as subscribed: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+                _logger.LogInformation("Marked backplane channel as subscribed: {BackplaneChannel}", backplaneChannel);
 
                 // Send a test message to verify the subscription
-                var testMessage = new Message
-                {
-                    Type = "server",
-                    ChannelId = envId,
-                    ChannelName = envId,
-                    MessageContent = JsonDocument.Parse(JsonSerializer.Serialize(new
+                var testMessage = _messageFactory.CreateMessage(
+                    type: "server",
+                    channelId: envId,
+                    channelName: envId,
+                    messageContent: JsonDocument.Parse(JsonSerializer.Serialize(new
                     {
                         messageType = "test",
                         data = new { timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() }
-                    })).RootElement
-                };
+                    })).RootElement,
+                    senderId: _serviceIdentityProvider.ServiceId,
+                    serviceType: ServiceTypes.Edge
+                );
 
                 _logger.LogInformation("Sending test message to verify subscription on channel: {Channel}", backplaneChannel);
                 await _backplaneManager.PublishAsync(backplaneChannel, JsonSerializer.Serialize(testMessage));
@@ -134,17 +133,17 @@ namespace Streaming.Scaling.Service
                 try
                 {
                     await subscriptionReady.Task.WaitAsync(cts.Token);
-                    _logger.LogInformation("Subscription verified for channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+                    _logger.LogInformation("Subscription verified for backplane channel: {BackplaneChannel}", backplaneChannel);
                 }
                 catch (OperationCanceledException)
                 {
-                    _logger.LogWarning("Timeout waiting for subscription verification on channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
-                    throw new TimeoutException($"Subscription verification timed out for channels: {backplaneChannel}, {edgeChannel}");
+                    _logger.LogWarning("Timeout waiting for subscription verification on backplane channel: {BackplaneChannel}", backplaneChannel);
+                    throw new TimeoutException($"Subscription verification timed out for backplane channel: {backplaneChannel}");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error setting up subscriptions for channels: {BackplaneChannel}, {EdgeChannel}", backplaneChannel, edgeChannel);
+                _logger.LogError(ex, "Error setting up subscription for backplane channel: {BackplaneChannel}", backplaneChannel);
                 throw;
             }
         }
@@ -158,6 +157,12 @@ namespace Streaming.Scaling.Service
 
                 if (parsedMessage?.ChannelId != null)
                 {
+                    // Log correlation information if available
+                    if (!string.IsNullOrEmpty(parsedMessage.SenderId) || !string.IsNullOrEmpty(parsedMessage.CorrelationId))
+                    {
+                        WebSocketServiceLogger.ProcessingMessageWithCorrelation(_logger, parsedMessage.ServiceType, parsedMessage.SenderId, parsedMessage.CorrelationId);
+                    }
+
                     var rawContent = parsedMessage.MessageContent.GetRawText() ?? string.Empty;
                     _logger.LogInformation("[SUBSCRIPTION CALLBACK] Raw message content: {RawContent}", rawContent);
 
@@ -375,20 +380,26 @@ namespace Streaming.Scaling.Service
             {
                 case "data-sync":
                     _logger.LogInformation("Processing data-sync message for environment {EnvId}", envId);
+                    WebSocketServiceLogger.WebSocketSendingMessage(_logger, id, channelId);
+                    
                     var messageContext = CreateMessageContextTransport(ctx, JsonDocument.Parse(message).RootElement);
                     var messageContextJson = JsonSerializer.Serialize(messageContext, JsonSerializerOptions.Web);
                     _logger.LogInformation("Created message context: {MessageContext}", messageContextJson);
 
-                    var backplaneMessage = new Message
-                    {
-                        ChannelId = envId,
-                        Type = "server",
-                        ChannelName = envId,
-                        MessageContent = JsonDocument.Parse(messageContextJson).RootElement
-                    };
+                    var backplaneMessage = _messageFactory.CreateMessage(
+                        type: "server",
+                        channelId: envId,
+                        channelName: envId,
+                        messageContent: JsonDocument.Parse(messageContextJson).RootElement,
+                        senderId: id, // Use the WebSocket subscription ID as sender ID
+                        serviceType: ServiceTypes.Edge
+                    );
+
+                    WebSocketServiceLogger.MessageCreatedWithCorrelation(_logger, backplaneMessage.ServiceType, backplaneMessage.SenderId, backplaneMessage.CorrelationId);
 
                     var serverMessageJson = JsonSerializer.Serialize<Message>(backplaneMessage, JsonSerializerOptions.Web);
-                    _logger.LogInformation("Publishing to backplane channel {ChannelId}: {Message}", channelId, serverMessageJson);
+                    _logger.LogInformation("Publishing to backplane channel {ChannelId}: {Message} with SenderId: {SenderId} and CorrelationId: {CorrelationId}", 
+                        channelId, serverMessageJson, backplaneMessage.SenderId, backplaneMessage.CorrelationId);
 
                     await _backplaneManager.PublishAsync(channelId, serverMessageJson);
                     _logger.LogInformation("Successfully published message to backplane");

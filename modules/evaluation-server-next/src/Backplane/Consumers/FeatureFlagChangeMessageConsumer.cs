@@ -7,6 +7,7 @@ using Domain.Messages;
 using MongoDB.Driver.Core.Bindings;
 using System.Text.Json;
 using Infrastructure.Scaling.Types;
+using Infrastructure.Scaling.Service;
 using Domain.Shared;
 
 namespace Backplane.Consumers;
@@ -17,11 +18,19 @@ public class FeatureFlagChangeMessageConsumer : IMessageConsumer
 
     private readonly IChannelPublisher _channelPublisher;
     private readonly IDataSyncService _dataSyncService;
+    private readonly IMessageFactory _messageFactory;
+    private readonly IServiceIdentityProvider _serviceIdentityProvider;
 
-    public FeatureFlagChangeMessageConsumer(IChannelPublisher channelPublisher, IDataSyncService dataSyncService)
+    public FeatureFlagChangeMessageConsumer(
+        IChannelPublisher channelPublisher, 
+        IDataSyncService dataSyncService,
+        IMessageFactory messageFactory,
+        IServiceIdentityProvider serviceIdentityProvider)
     {
         _channelPublisher = channelPublisher;
         _dataSyncService = dataSyncService;
+        _messageFactory = messageFactory;
+        _serviceIdentityProvider = serviceIdentityProvider;
     }
 
     public async Task HandleAsync(string message, CancellationToken cancellationToken)
@@ -35,17 +44,19 @@ public class FeatureFlagChangeMessageConsumer : IMessageConsumer
         var serverMessage = new ServerMessage(MessageTypes.DataSync, payload);
         var serverMessageJson = JsonSerializer.Serialize(serverMessage, ReusableJsonSerializerOptions.Web);
 
-        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEdgeChannel(envId.ToString()).Replace("featbit-els-edge-", "featbit:els:edge:");
+        var channelId = Infrastructure.BackplaneMesssages.Channels.GetBackplaneChannel(envId.ToString()).Replace("featbit-els-backplane-", "featbit:els:backplane:");
 
-        var backplaneMessage = new Message
-        {
-            ChannelId = envId.ToString(),
-            Type = "server",
-            ChannelName = envId.ToString(),
-            MessageContent = JsonDocument.Parse(serverMessageJson).RootElement
-        };
+        var backplaneMessage = _messageFactory.CreateMessage(
+            type: "server",
+            channelId: envId.ToString(),
+            channelName: envId.ToString(),
+            messageContent: JsonDocument.Parse(serverMessageJson).RootElement,
+            senderId: _serviceIdentityProvider.ServiceId,
+            serviceType: ServiceTypes.Hub
+        );
+
+        Console.WriteLine($"Hub sending flag change notification to Edge - ServiceType: {backplaneMessage.ServiceType}, SenderId: {backplaneMessage.SenderId}, CorrelationId: {backplaneMessage.CorrelationId}, EnvId: {envId}");
 
         await _channelPublisher.PublishAsync(channelId, backplaneMessage);
-        
     }
 }

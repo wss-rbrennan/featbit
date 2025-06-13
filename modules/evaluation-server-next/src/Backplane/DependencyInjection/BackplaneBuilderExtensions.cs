@@ -15,6 +15,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Infrastructure.MQ.Redis;
+using Infrastructure.Scaling.Service;
 
 namespace Backplane.DependencyInjection
 {
@@ -45,6 +46,9 @@ namespace Backplane.DependencyInjection
 
             void AddConsumers()
             {
+                // Add message correlation services
+                services.AddSingleton<IServiceIdentityProvider, ServiceIdentityProvider>();
+                services.AddSingleton<IMessageFactory, MessageFactory>();
 
                 //services.AddSingleton<IBackplaneManager, RedisManager>();
                 services.AddSingleton<IDataSyncService, DataSyncService>();

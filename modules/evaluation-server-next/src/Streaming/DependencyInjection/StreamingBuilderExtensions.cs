@@ -17,6 +17,7 @@ using Infrastructure.BackplaneMesssages;
 using Infrastructure.Providers.Redis;
 using Streaming.Scaling.Service;
 using Streaming.Scaling.Manager;
+using Infrastructure.Scaling.Service;
 
 namespace Streaming.DependencyInjection;
 
@@ -106,6 +107,8 @@ public static class StreamingBuilderExtensions
     {
         var services = builder.Services;
         
+        services.AddSingleton<IServiceIdentityProvider, ServiceIdentityProvider>();
+        services.AddSingleton<IMessageFactory, MessageFactory>();
         services.AddSingleton<IBackplaneManager, RedisManager>();
         services.AddSingleton<ISubscriptionService, SubscriptionService>();
         services.AddSingleton<IWebSocketService, WebSocketService>();
