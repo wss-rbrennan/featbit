@@ -1,5 +1,5 @@
 using Backplane.DependencyInjection;
-using Backplane.EdgeConnections;
+using Infrastructure.Connections;
 using DataStore.DependencyInjection;
 using Infrastructure;
 using Infrastructure.MQ.Redis;

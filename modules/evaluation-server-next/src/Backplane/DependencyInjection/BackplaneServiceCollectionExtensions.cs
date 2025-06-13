@@ -1,7 +1,7 @@
 using Backplane.Messages;
-using Backplane.EdgeConnections;
+using Backplane;
 using Application.Services;
-using Backplane.Validators;
+using Application.Validation;
 using Domain;
 using Infrastructure;
 using Infrastructure.Providers;
@@ -14,6 +14,8 @@ using IRedisClient = DataStore.Caches.Redis.IRedisClient;
 using Infrastructure.BackplaneMesssages;
 using Microsoft.Extensions.Configuration;
 using Infrastructure.Scaling.Handlers;
+using Infrastructure.Protocol;
+using Infrastructure.Connections;
 
 namespace Backplane.DependencyInjection;
 
@@ -21,10 +23,10 @@ public static class BackplaneServiceCollectionExtensions
 {
     public static IBackplaneBuilder AddBackplane(
         this IServiceCollection services,
-        Action<BackplaneOptions>? configureOptions = null)
+        Action<StreamingOptions>? configureOptions = null)
     {
         // add streaming options
-        var options = new BackplaneOptions();
+        var options = new StreamingOptions();
         configureOptions?.Invoke(options);
         services.AddSingleton(options);
 

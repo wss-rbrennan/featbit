@@ -1,32 +1,32 @@
-using Domain.Shared;
+//using Domain.Shared;
 
-namespace Backplane.Validators;
+//namespace Backplane.Validators;
 
-public sealed class ValidationResult
-{
-    public bool IsValid { get; set; }
+//public sealed class ValidationResult
+//{
+//    public bool IsValid { get; set; }
 
-    public string Reason { get; set; } = string.Empty;
+//    public string Reason { get; set; } = string.Empty;
 
-    public Secret[] Secrets { get; set; } = [];
+//    public Secret[] Secrets { get; set; } = [];
 
-    public static ValidationResult Ok(Secret[] secrets)
-    {
-        return new ValidationResult
-        {
-            IsValid = true,
-            Secrets = secrets,
-            Reason = string.Empty
-        };
-    }
+//    public static ValidationResult Ok(Secret[] secrets)
+//    {
+//        return new ValidationResult
+//        {
+//            IsValid = true,
+//            Secrets = secrets,
+//            Reason = string.Empty
+//        };
+//    }
 
-    public static ValidationResult Failed(string reason)
-    {
-        return new ValidationResult
-        {
-            IsValid = false,
-            Secrets = [],
-            Reason = reason
-        };
-    }
-}
+//    public static ValidationResult Failed(string reason)
+//    {
+//        return new ValidationResult
+//        {
+//            IsValid = false,
+//            Secrets = [],
+//            Reason = reason
+//        };
+//    }
+//}

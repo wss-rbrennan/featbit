@@ -1,6 +1,6 @@
-namespace Backplane.Validators;
+//namespace Backplane.Validators;
 
-public interface IRequestValidator
-{
-    Task<ValidationResult> ValidateAsync(string tokenString);
-}
+//public interface IRequestValidator
+//{
+//    Task<ValidationResult> ValidateAsync(string tokenString);
+//}
