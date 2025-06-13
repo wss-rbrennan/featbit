@@ -136,4 +136,4 @@ namespace Streaming.Scaling.Service
             Message = "WebSocket subscription {SubscriptionId} sending message to channel {ChannelId}")]
         public static partial void WebSocketSendingMessage(this ILogger logger, string subscriptionId, string channelId);
     }
-} 
+}

@@ -27,7 +27,6 @@ public sealed partial class MessageDispatcher
 
     public MessageDispatcher(IEnumerable<IMessageHandler> handlers, ILogger<MessageDispatcher> logger, IWebSocketService webSocketService)
     {
-        
         _handlers = handlers.ToDictionary(handler => handler.Type, StringComparer.OrdinalIgnoreCase);
         _logger = logger;
         _webSocketService = webSocketService;
@@ -35,32 +34,7 @@ public sealed partial class MessageDispatcher
 
     public async Task DispatchAsync(ConnectionContext connection, CancellationToken token)
     {
-        var ws = connection.WebSocket;
-
-        //await _webSocketService.HandleConnectionAsync(ws);
-
         await _webSocketService.HandleConnectionAsync(connection, token);
-
-
-        //while (!token.IsCancellationRequested && ws.State == WebSocketState.Open)
-        //{
-        //    try
-        //    {
-        //        await DispatchCoreAsync(connection, token);
-        //    }
-        //    catch (WebSocketException e) when (e.WebSocketErrorCode == WebSocketError.ConnectionClosedPrematurely)
-        //    {
-        //        ws.Abort();
-        //    }
-        //    catch (OperationCanceledException)
-        //    {
-        //        // ignore
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Log.ErrorDispatchMessage(_logger, connection, ex);
-        //    }
-        //}
     }
 
     private async Task DispatchCoreAsync(ConnectionContext connection, CancellationToken token)
@@ -150,10 +124,6 @@ public sealed partial class MessageDispatcher
     {
         try
         {
-
-            // TODO: Create a new "EdgeMessageContext" class to prepare a message that the Hub can use.
-
-
             using var message = JsonDocument.Parse(bytes);
 
             var root = message.RootElement;

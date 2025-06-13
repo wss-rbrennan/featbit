@@ -1,18 +1,6 @@
-using Confluent.Kafka;
-using Domain.Messages;
 using Domain.Shared;
 using Infrastructure;
 using DataStore.Caches;
-using DataStore.Fakes;
-using Infrastructure.MQ;
-using Infrastructure.MQ.Kafka;
-using Infrastructure.MQ.Postgres;
-using Infrastructure.MQ.Redis;
-using DataStore.Persistence;
-using DataStore.Store;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-//using Streaming.Consumers;
 using Infrastructure.BackplaneMesssages;
 using Infrastructure.Providers.Redis;
 using Streaming.Scaling.Service;
@@ -106,7 +94,7 @@ public static class StreamingBuilderExtensions
     public static IStreamingBuilder UseScaling(this IStreamingBuilder builder)
     {
         var services = builder.Services;
-        
+
         services.AddSingleton<IServiceIdentityProvider, ServiceIdentityProvider>();
         services.AddSingleton<IMessageFactory, MessageFactory>();
         services.AddSingleton<IBackplaneManager, RedisManager>();
@@ -149,38 +137,10 @@ public static class StreamingBuilderExtensions
                 break;
         }
 
-        
-
         return builder;
-
-        //void AddFake()
-        //{
-        //    services.AddSingleton<IDbStore, FakeStore>();
-        //}
-
-        //void AddMongoDb()
-        //{
-        //    services.TryAddMongoDb(configuration);
-        //    services.AddTransient<IDbStore, MongoDbStore>();
-        //}
-
-        //void AddPostgres()
-        //{
-        //    services.TryAddPostgres(configuration);
-        //    services.AddTransient<IDbStore, PostgresStore>();
-        //}
-
-        
 
         void AddRedis()
         {
-            //services.TryAddRedis(configuration);
-            //services.AddTransient<IDbStore, RedisStore>();
-
-            // use hybrid store if we use Redis cache
-            //services.AddSingleton<IStore, HybridStore>();
-            //services.AddHostedService<StoreAvailableSentinel>();
-
             services.AddSingleton<IChannelProducer, RedisChannelProducer>();
             services.AddHostedService<RedisChannelConsumer>();
         }

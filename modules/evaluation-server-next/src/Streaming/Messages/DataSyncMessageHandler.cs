@@ -18,8 +18,6 @@ public class DataSyncMessageHandler : IMessageHandler
 
     public async Task HandleAsync(MessageContext ctx)
     {
-        var connectionContext = ctx.Connection;
-
         var message = ctx.Data.Deserialize<DataSyncMessage>(ReusableJsonSerializerOptions.Web);
         if (message == null)
         {
@@ -29,11 +27,11 @@ public class DataSyncMessageHandler : IMessageHandler
         using var document = JsonDocument.Parse(ctx.Data.ToString());
         var data = document.RootElement;
 
-        var token = new Token(ctx.Connection.Token.AsSpan());   
+        var token = new Token(ctx.Connection.Token.AsSpan());
 
         var envId = ctx.Connection.Connection.EnvId.ToString();
 
-        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEdgeChannel(envId.ToString()).Replace("featbit-els-", "featbit:els:");
+        var channelId = Infrastructure.BackplaneMesssages.Channels.GetEdgeChannel(envId).Replace("featbit-els-", "featbit:els:");
 
         await _channelPublisher.PublishAsync(channelId, message);
         //await _producer.PublishAsync(channelId, serverMessage, cancellationToken);

@@ -22,7 +22,7 @@ namespace Streaming.Scaling.Service
         private readonly ILogger<WebSocketService> _logger;
         private const string FEATBIT_ELS_PREFIX = "featbit:els:edge:";
         private const string FEATBIT_ELS_BACKPLANE_PREFIX = "featbit:els:backplane:";
-        private readonly Dictionary<string, bool> _subscribedChannels = new();
+        private readonly Dictionary<string, bool> _subscribedChannels = [];
 
         public WebSocketService(ILogger<WebSocketService> logger,
                                 ISubscriptionService subscriptionService,
@@ -52,15 +52,13 @@ namespace Streaming.Scaling.Service
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("WebSocketService shutdown initiated - disconnecting all WebSocket connections");
-            
             // Cancel the internal cancellation token to stop any ongoing operations
             _cancellationTokenSource.Cancel();
-            
             // Disconnect all WebSocket connections gracefully
             try
             {
                 await _subscriptionService.DisconnectAllAsync(
-                    WebSocketCloseStatus.NormalClosure, 
+                    WebSocketCloseStatus.NormalClosure,
                     "Server is shutting down"
                 );
             }
@@ -68,13 +66,13 @@ namespace Streaming.Scaling.Service
             {
                 _logger.LogError(ex, "Error occurred while disconnecting WebSocket connections during shutdown");
             }
-            
+
             // Dispose the subscription logger timer
             _subscriptionLogger.Dispose();
-            
+
             // Call base implementation
             await base.StopAsync(cancellationToken);
-            
+
             _logger.LogInformation("WebSocketService shutdown completed");
         }
 
@@ -88,7 +86,7 @@ namespace Streaming.Scaling.Service
         private async Task SubscribeToBackplaneChannel(string envId)
         {
             var backplaneChannel = $"{FEATBIT_ELS_BACKPLANE_PREFIX}{envId}";
-            
+
             if (_subscribedChannels.ContainsKey(backplaneChannel))
             {
                 _logger.LogInformation("Already subscribed to backplane channel: {BackplaneChannel}", backplaneChannel);
@@ -99,7 +97,7 @@ namespace Streaming.Scaling.Service
             try
             {
                 var subscriptionReady = new TaskCompletionSource<bool>();
-                
+
                 // Subscribe to backplane channel only - Edge service listens to backplane, publishes to edge
                 await _backplaneManager.SubscribeAsync(backplaneChannel, async (message) =>
                 {
@@ -174,7 +172,7 @@ namespace Streaming.Scaling.Service
                     {
                         var messageTypeStr = messageType.GetString();
                         _logger.LogInformation("[SUBSCRIPTION CALLBACK] Found messageType in root: {MessageType}", messageTypeStr);
-                        
+
                         // If this is a test message, mark the subscription as ready
                         if (messageTypeStr == "test" && !subscriptionReady.Task.IsCompleted)
                         {
@@ -182,7 +180,7 @@ namespace Streaming.Scaling.Service
                             subscriptionReady.TrySetResult(true);
                             return;
                         }
-                        
+
                         await HandleMessageType(messageTypeStr, parsedMessage.ChannelId, rawContent);
                     }
                     // Then try to get it from the nested message structure
@@ -193,7 +191,7 @@ namespace Streaming.Scaling.Service
                         {
                             var messageTypeStr = nestedMessageType.GetString();
                             _logger.LogInformation("[SUBSCRIPTION CALLBACK] Found messageType in nested message: {MessageType}", messageTypeStr);
-                            
+
                             // If this is a test message, mark the subscription as ready
                             if (messageTypeStr == "test" && !subscriptionReady.Task.IsCompleted)
                             {
@@ -201,15 +199,15 @@ namespace Streaming.Scaling.Service
                                 subscriptionReady.TrySetResult(true);
                                 return;
                             }
-                            
+
                             await HandleMessageType(messageTypeStr, parsedMessage.ChannelId, rawContent);
                         }
-                        else if (messageElement.TryGetProperty("data", out var dataElement) && 
+                        else if (messageElement.TryGetProperty("data", out var dataElement) &&
                                 dataElement.TryGetProperty("messageType", out var dataMessageType))
                         {
                             var messageTypeStr = dataMessageType.GetString();
                             _logger.LogInformation("[SUBSCRIPTION CALLBACK] Found messageType in data element: {MessageType}", messageTypeStr);
-                            
+
                             // If this is a test message, mark the subscription as ready
                             if (messageTypeStr == "test" && !subscriptionReady.Task.IsCompleted)
                             {
@@ -217,7 +215,7 @@ namespace Streaming.Scaling.Service
                                 subscriptionReady.TrySetResult(true);
                                 return;
                             }
-                            
+
                             await HandleMessageType(messageTypeStr, parsedMessage.ChannelId, rawContent);
                         }
                         else
@@ -261,15 +259,15 @@ namespace Streaming.Scaling.Service
             
             // Subscribe to the specific backplane channel for this environment
             await SubscribeToBackplaneChannel(envId);
-            
+
             // Add a small delay to ensure subscription is fully ready
             await Task.Delay(100);
-            
+
             _subscriptionService.AddChannelToSubscription(id, envId);
             _logger.LogInformation("Added channel {Channel} to subscription {Id}", envId, id);
 
             WebSocketServiceLogger.CreatedSubscription(_logger, id);
-            
+
             var buffer = new byte[1024 * 4];
 
             try
@@ -422,7 +420,7 @@ namespace Streaming.Scaling.Service
             var connectionInfo = new Infrastructure.Scaling.Types.ConnectionInfo(ctx.Connection.Id, ctx.Connection.Secret);
             connectionInfo.User = ctx.Connection.User;
             var mappedRpConnections = ctx.MappedRpConnections.Select(c => new Infrastructure.Scaling.Types.ConnectionInfo(c.Id, c.Secret)).ToArray();
-            var connectionContextInfo = new DefaultConnectionContextInfo(ctx.RawQuery.ToString(),
+            var connectionContextInfo = new DefaultConnectionContextInfo(ctx.RawQuery,
                 ctx.ConnectAt, ctx.Client, connectionInfo, mappedRpConnections);
             return new MessageContext(connectionContextInfo, messageContent);
         }
