@@ -1,6 +1,6 @@
 using Domain.Shared;
 
-namespace Backplane.Services;
+namespace Application.Services;
 
 public interface IRelayProxyService
 {

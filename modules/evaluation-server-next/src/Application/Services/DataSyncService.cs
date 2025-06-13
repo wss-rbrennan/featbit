@@ -1,5 +1,5 @@
 //using Backplane.EdgeConnections;
-using Backplane.Messages;
+//using Backplane.Messages;
 using Infrastructure.Protocol;
 using Domain.EndUsers;
 using Domain.Evaluation;
@@ -12,7 +12,7 @@ using Infrastructure.Scaling.Types;
 using ConnectionInfo = Infrastructure.Scaling.Types.ConnectionInfo;
 using Infrastructure.Connections;
 
-namespace Backplane.Services;
+namespace Application.Services;
 
 public class DataSyncService : IDataSyncService
 {
@@ -107,7 +107,7 @@ public class DataSyncService : IDataSyncService
         return new { eventType, payloads };
     }
 
-    public async Task<object> GetFlagChangePayloadAsync(JsonElement flag)
+    public object GetFlagChangePayload(JsonElement flag)
     {
         var payload = GetServerSdkFlagChangePayload(flag);
         
@@ -116,22 +116,24 @@ public class DataSyncService : IDataSyncService
     }
 
     public async Task<object> GetSegmentChangePayloadAsync(
-        EdgeMessage edgeMessage,
+        MessageContext ctx,
         JsonElement segment,
         string[] affectedFlagIds)
     {
+        var connectionContext = ctx.Connection;
+        var messageType = ctx.Data.GetProperty("type").GetString();
 
-        if (edgeMessage.Type == ConnectionType.Client && edgeMessage.User == null)
+        if (connectionContext.Type == ConnectionType.Client && connectionContext.Connection.User == null)
         {
-            throw new ArgumentException($"client sdk must have user info when sync data. Connection: {edgeMessage}");
+            throw new ArgumentException($"client sdk must have user info when sync data. Connection: {ctx}");
         }
 
-        object payload = edgeMessage.Type switch
+        object payload = connectionContext.Type switch
         {
-            ConnectionType.Client => await GetClientSegmentChangePayloadAsync(affectedFlagIds, edgeMessage.User!),
+            ConnectionType.Client => await GetClientSegmentChangePayloadAsync(affectedFlagIds, connectionContext.Connection.User!),
             ConnectionType.Server => GetServerSdkSegmentChangePayload(segment),
             _ => throw new ArgumentOutOfRangeException(
-                nameof(edgeMessage), $"unsupported sdk type {edgeMessage.Type}"
+                nameof(ctx), $"unsupported sdk type {connectionContext.Type}"
             )
         };
 

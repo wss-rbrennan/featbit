@@ -10,7 +10,7 @@ using Infrastructure.MQ;
 using Domain.Messages;
 using Backplane.Consumers;
 using Infrastructure.Channels;
-using Backplane.Services;
+using Application.Services;
 using Infrastructure.Providers.Redis;
 using Infrastructure.BackplaneMesssages;
 using Backplane.Messages;

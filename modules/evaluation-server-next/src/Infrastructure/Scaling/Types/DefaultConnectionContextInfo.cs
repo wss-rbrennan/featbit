@@ -27,9 +27,9 @@ public class DefaultConnectionContextInfo
         var query = new QueryCollection(rawQuery);
 
         // Fix for CS8602: Ensure the key exists and the value is not null before accessing the value
-        Type = query.ContainsKey("type") && query["type"] != null ? query["type"].ToString() : string.Empty;
-        Version = query.ContainsKey("version") && query["version"] != null ? query["version"].ToString() : string.Empty;
-        Token = query.ContainsKey("token") && query["token"] != null ? query["token"].ToString() : string.Empty;
+        Type = query.ContainsKey("type") && query["type"] != null ? query["type"]!.ToString() : string.Empty;
+        Version = query.ContainsKey("version") && query["version"] != null ? query["version"]!.ToString() : string.Empty;
+        Token = query.ContainsKey("token") && query["token"] != null ? query["token"]!.ToString() : string.Empty;
 
         ConnectAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 

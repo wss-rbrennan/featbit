@@ -1,6 +1,6 @@
 using Backplane.Messages;
 using Infrastructure.Protocol;
-using Backplane.Services;
+using Application.Services;
 using Infrastructure.Channels;
 using Infrastructure.BackplaneMesssages;
 using Domain.Messages;
@@ -40,7 +40,7 @@ public class FeatureFlagChangeMessageConsumer : IMessageConsumer
 
         var envId = flag.GetProperty("envId").GetGuid();
 
-        var payload = await _dataSyncService.GetFlagChangePayloadAsync(flag);
+        var payload = _dataSyncService.GetFlagChangePayload(flag);
         var serverMessage = new ServerMessage(MessageTypes.DataSync, payload);
         var serverMessageJson = JsonSerializer.Serialize(serverMessage, ReusableJsonSerializerOptions.Web);
 

@@ -1,7 +1,7 @@
 using Infrastructure.Channels;
 using Backplane.Messages;
 using Infrastructure.Protocol;
-using Backplane.Services;
+using Application.Services;
 using Domain.Messages;
 using Domain.Shared;
 using Infrastructure.Scaling.Service;

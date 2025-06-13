@@ -1,6 +1,6 @@
 using Backplane.Messages;
 using Backplane.EdgeConnections;
-using Backplane.Services;
+using Application.Services;
 using Backplane.Validators;
 using Domain;
 using Infrastructure;

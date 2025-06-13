@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Dapper;
 using Domain.Shared;
-using Infrastructure;
+//using Infrastructure;
 using DataStore;
 using DataStore.Fakes;
 using DataStore.Persistence;
@@ -12,7 +12,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Npgsql;
 
-namespace Backplane.Services;
+namespace Application.Services;
 
 public class RelayProxyService(IConfiguration configuration, IServiceProvider serviceProvider)
     : IRelayProxyService

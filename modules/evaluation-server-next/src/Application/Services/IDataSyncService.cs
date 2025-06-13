@@ -1,11 +1,10 @@
 ﻿using System.Text.Json;
 using Domain.EndUsers;
-using Backplane.Messages;
 using Infrastructure.Protocol;
 using Infrastructure.Scaling.Types;
 using ConnectionInfo = Infrastructure.Scaling.Types.ConnectionInfo;
 
-namespace Backplane.Services;
+namespace Application.Services;
 
 public interface IDataSyncService
 {
@@ -17,7 +16,7 @@ public interface IDataSyncService
 
     Task<object> GetRelayProxyPayloadAsync(IEnumerable<Guid> envIds, long timestamp);
 
-    Task<object> GetFlagChangePayloadAsync(JsonElement flag);
+    object GetFlagChangePayload(JsonElement flag);
 
-    Task<object> GetSegmentChangePayloadAsync(EdgeMessage edgeMessage, JsonElement segment, string[] affectedFlagIds);
+    Task<object> GetSegmentChangePayloadAsync(MessageContext ctx, JsonElement segment, string[] affectedFlagIds);
 }

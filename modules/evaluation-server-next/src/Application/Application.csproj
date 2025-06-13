@@ -18,4 +18,8 @@
       <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" Version="8.10.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
+    </ItemGroup>
+
 </Project>
