@@ -34,10 +34,6 @@ public static class StreamingServiceCollectionExtensions
         // request validator
         services.AddSingleton<IRequestValidator, RequestValidator>();
 
-        // services
-        //services
-            //.AddEvaluator()
-            //.AddTransient<IDataSyncService, DataSyncService>();
         if (options.SupportedTypes.Contains(ConnectionType.RelayProxy))
         {
             services.AddTransient<IRelayProxyService, RelayProxyService>();
@@ -50,51 +46,11 @@ public static class StreamingServiceCollectionExtensions
         services
             .AddSingleton<MessageDispatcher>()
             .AddTransient<IMessageHandler, PingMessageHandler>();
-            //.AddTransient<IMessageHandler, EchoMessageHandler>();
-            //.AddTransient<IMessageHandler, DataSyncMessageHandler>();
 
         return new StreamingBuilder(services);
     }
 
-    //public static void TryAddRedis(this IServiceCollection services, IConfiguration configuration)
-    //{
-    //    if (services.Any(service => service.ServiceType == typeof(IRedisClient)))
-    //    {
-    //        return;
-    //    }
 
-    //    services.AddOptionsWithValidateOnStart<RedisOptions>()
-    //        .Bind(configuration.GetSection(RedisOptions.Redis))
-    //        .ValidateDataAnnotations();
 
-    //    services.AddSingleton<IRedisClient, RedisClient>();
-    //}
 
-    public static void TryAddMongoDb(this IServiceCollection services, IConfiguration configuration)
-    {
-        if (services.Any(service => service.ServiceType == typeof(IMongoDbClient)))
-        {
-            return;
-        }
-
-        services.AddOptionsWithValidateOnStart<MongoDbOptions>()
-            .Bind(configuration.GetSection(MongoDbOptions.MongoDb))
-            .ValidateDataAnnotations();
-
-        services.AddSingleton<IMongoDbClient, MongoDbClient>();
-    }
-
-    public static void TryAddPostgres(this IServiceCollection services, IConfiguration configuration)
-    {
-        if (services.Any(service => service.ServiceType == typeof(NpgsqlDataSource)))
-        {
-            return;
-        }
-
-        services.AddOptionsWithValidateOnStart<PostgresOptions>()
-            .Bind(configuration.GetSection(PostgresOptions.Postgres))
-            .ValidateDataAnnotations();
-
-        services.AddNpgsqlDataSource(configuration.GetPostgresConnectionString());
-    }
 }

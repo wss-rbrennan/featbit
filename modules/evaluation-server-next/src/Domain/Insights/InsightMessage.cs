@@ -9,7 +9,7 @@ public class InsightMessage
     [JsonPropertyName("uuid")] 
     public string Uuid { get; set; }
 
-    [JsonPropertyName("distinct_id")] 
+    [JsonPropertyName("distinct_id")]
     public string DistinctId { get; set; }
 
     [JsonPropertyName("env_id")] 
