@@ -10,7 +10,6 @@ namespace Streaming.Scaling.Manager
 {
     public class RedisManager : IBackplaneManager
     {
-        private static RedisManager? _instance;
         private readonly IConnectionMultiplexer _redis;
         private readonly ISubscriber _subscriber;
         private readonly IConfiguration _configuration;
@@ -27,7 +26,7 @@ namespace Streaming.Scaling.Manager
             var instanceName = redisSection["InstanceName"];
 
             _logger.LogDebug($"Connecting to Redis at: {connectionString}");
-            var options = ConfigurationOptions.Parse(connectionString);
+            var options = ConfigurationOptions.Parse(connectionString!);
             options.ConnectTimeout = 5000; // 5 seconds
             options.SyncTimeout = 5000; // 5 seconds
             options.AbortOnConnectFail = false; // Don't throw on connection failure
@@ -117,7 +116,7 @@ namespace Streaming.Scaling.Manager
                     _logger.LogInformation("Received message from Redis channel '{Channel}': {Message}", channel, value);
                     try
                     {
-                        callback(value);
+                        callback(value!);
                     }
                     catch (Exception ex)
                     {
@@ -160,7 +159,11 @@ namespace Streaming.Scaling.Manager
                     _logger.LogDebug("Redis not connected, attempting to reconnect...");
                     await ConnectAsync();
                 }
-                await _subscriber.UnsubscribeAsync(channel);
+
+                // Explicitly specify the PatternMode as Literal for the RedisChannel
+                var redisChannel = new RedisChannel(channel, RedisChannel.PatternMode.Literal);
+                await _subscriber.UnsubscribeAsync(redisChannel);
+
                 _logger.LogDebug($"Successfully unsubscribed from Redis channel: {channel}");
             }
             catch (Exception ex)

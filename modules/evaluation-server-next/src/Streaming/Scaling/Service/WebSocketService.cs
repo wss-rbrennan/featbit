@@ -76,13 +76,6 @@ namespace Streaming.Scaling.Service
             _logger.LogInformation("WebSocketService shutdown completed");
         }
 
-        // Interface requirement - but we'll use our new subscription approach
-        public async Task SubscribeToFeatbitChannels()
-        {
-            _logger.LogInformation("SubscribeToFeatbitChannels called - using per-connection subscription model");
-            // No-op as we now subscribe per connection
-        }
-
         private async Task SubscribeToBackplaneChannel(string envId)
         {
             var backplaneChannel = $"{FEATBIT_ELS_BACKPLANE_PREFIX}{envId}";
@@ -420,8 +413,8 @@ namespace Streaming.Scaling.Service
             var connectionInfo = new Infrastructure.Scaling.Types.ConnectionInfo(ctx.Connection.Id, ctx.Connection.Secret);
             connectionInfo.User = ctx.Connection.User;
             var mappedRpConnections = ctx.MappedRpConnections.Select(c => new Infrastructure.Scaling.Types.ConnectionInfo(c.Id, c.Secret)).ToArray();
-            var connectionContextInfo = new DefaultConnectionContextInfo(ctx.RawQuery,
-                ctx.ConnectAt, ctx.Client, connectionInfo, mappedRpConnections);
+            var connectionContextInfo = new DefaultConnectionContextInfo(ctx.RawQuery!,
+                ctx.ConnectAt, ctx.Client!, connectionInfo, mappedRpConnections);
             return new MessageContext(connectionContextInfo, messageContent);
         }
 

@@ -10,7 +10,6 @@ namespace Streaming.Scaling.Service
 {
     public interface IBackplaneServiceBase
     {
-        public Task SubscribeToFeatbitChannels();
         public void LogSubscriptions(object? state);
 
         public Task HandleSubscribeAsync(string id, string channel);

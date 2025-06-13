@@ -70,7 +70,6 @@ public static class ServicesRegister
         services
             .AddSingleton<IMessageConsumer, FeatureFlagChangeMessageConsumer>()
             .AddSingleton<IMessageConsumer, SegmentChangeMessageConsumer>();
-            //.AddSingleton<IMessageHandler, DataSyncMessageHandler>();
 
         services
             .AddHostedService<RedisMessageConsumer>();

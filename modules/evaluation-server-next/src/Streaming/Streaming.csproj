@@ -11,6 +11,13 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <Compile Remove="BackplaneEdgeClient\**" />
+      <Content Remove="BackplaneEdgeClient\**" />
+      <EmbeddedResource Remove="BackplaneEdgeClient\**" />
+      <None Remove="BackplaneEdgeClient\**" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\DataStore\DataStore.csproj" />
         <ProjectReference Include="..\Domain\Domain.csproj" />
         <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
@@ -18,10 +25,6 @@
 
     <ItemGroup>
       <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" Version="8.10.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="BackplaneEdgeClient\" />
     </ItemGroup>
 
 </Project>
