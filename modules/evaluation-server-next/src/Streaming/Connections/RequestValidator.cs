@@ -3,7 +3,7 @@ using Domain.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Internal;
 using Microsoft.Extensions.Logging;
-using Streaming.Services;
+using Application.Services;
 using Infrastructure.Connections;
 
 namespace Streaming.Connections;

@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Streaming.Connections;
 using Streaming.Messages;
-using Streaming.Services;
+using Application.Services;
 using DataStore.Caches.Redis;
 using IRedisClient = DataStore.Caches.Redis.IRedisClient;
 using Infrastructure.Connections;
