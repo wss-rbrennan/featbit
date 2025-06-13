@@ -1,6 +1,6 @@
 using Infrastructure.Connections;
 
-namespace Streaming.Connections;
+namespace Application.Validation;
 
 public interface IRequestValidator
 {

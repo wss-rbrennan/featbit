@@ -1,4 +1,4 @@
-﻿namespace Streaming.Connections;
+﻿namespace Infrastructure.Connections;
 
 public static class ConnectionVersion
 {

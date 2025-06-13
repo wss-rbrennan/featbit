@@ -9,11 +9,12 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using StackExchange.Redis;
 
 namespace Infrastructure.Providers.Redis
 {
     public partial class RedisChannelProducer(IRedisClient redisClient, ILogger<RedisChannelProducer> logger)
-        : IChannelProducer
+            : IChannelProducer
     {
 
         public async Task PublishAsync<TMessage>(string channel, TMessage? message) where TMessage : class
@@ -22,7 +23,10 @@ namespace Infrastructure.Providers.Redis
             {
                 var jsonMessage = JsonSerializer.Serialize(message, ReusableJsonSerializerOptions.Web);
 
-                await redisClient.GetDatabase().PublishAsync(channel, jsonMessage);
+                // Explicitly specify the PatternMode using RedisChannel.Literal
+                var redisChannel = RedisChannel.Literal(channel);
+
+                await redisClient.GetDatabase().PublishAsync(redisChannel, jsonMessage);
 
                 Log.ChannelMessagePublished(logger, jsonMessage);
             }

@@ -1,6 +1,6 @@
 using Domain.Shared;
 
-namespace Streaming.Connections;
+namespace Application.Validation;
 
 public sealed class ValidationResult
 {

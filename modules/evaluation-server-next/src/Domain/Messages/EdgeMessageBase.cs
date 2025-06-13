@@ -1,15 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+﻿//using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.Text;
+//using System.Text.Json.Serialization;
+//using System.Threading.Tasks;
 
-namespace Domain.Messages
-{
-    public class EdgeMessageBase
-    {
-        [JsonPropertyName("messageType")]
-        public string MessageType { get; set; }
-    }
-}
+//namespace Domain.Messages
+//{
+//    public class EdgeMessageBase
+//    {
+//        [JsonPropertyName("messageType")]
+//        public string MessageType { get; set; }
+//    }
+//}

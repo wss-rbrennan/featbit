@@ -12,6 +12,8 @@ using Application.Services;
 using DataStore.Caches.Redis;
 using IRedisClient = DataStore.Caches.Redis.IRedisClient;
 using Infrastructure.Connections;
+using Infrastructure.Protocol;
+using Application.Validation;
 
 namespace Streaming.DependencyInjection;
 

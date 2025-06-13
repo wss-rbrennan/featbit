@@ -1,7 +1,6 @@
-using Streaming.Connections;
 using Infrastructure.Connections;
 
-namespace Streaming;
+namespace Infrastructure.Protocol;
 
 public class StreamingOptions
 {

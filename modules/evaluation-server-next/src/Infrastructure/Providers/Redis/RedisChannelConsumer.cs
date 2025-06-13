@@ -64,7 +64,7 @@ namespace Infrastructure.Providers.Redis
                     var message = JsonSerializer.Deserialize<Message>(channelMessage.Message.ToString(), JsonSerializerOptions.Web);
 
                     // Log correlation information if available
-                    if (!string.IsNullOrEmpty(message.SenderId) || !string.IsNullOrEmpty(message.CorrelationId))
+                    if (!string.IsNullOrEmpty(message!.SenderId) || !string.IsNullOrEmpty(message.CorrelationId))
                     {
                         _logger.LogInformation("Hub processing message from {ServiceType} - SenderId: {SenderId}, CorrelationId: {CorrelationId}, Channel: {Channel}",
                             message.ServiceType ?? "unknown", message.SenderId, message.CorrelationId, theChannel);
@@ -72,17 +72,21 @@ namespace Infrastructure.Providers.Redis
 
                     var messageContext = JsonSerializer.Deserialize<MessageContext>(message.MessageContent, JsonSerializerOptions.Web);
 
-                    var messageType = messageContext.Data.GetProperty("messageType");
+                    var messageType = messageContext!.Data.GetProperty("messageType");
 
                     if (!_handlers.TryGetValue(messageType.ToString(), out var handler))
                     {
-                        Log.NoHandlerForChannel(_logger, theChannel);
+                        Log.NoHandlerForChannel(_logger, theChannel!);
                         return;
                     }
 
                     await handler.HandleAsync(messageContext);
 
-                    Log.ChannelMessageHandled(_logger, message.ToString());
+                    if (message != null)
+                    {
+                        Log.ChannelMessageHandled(_logger, message.ToString()!);
+                    }
+                    
                 }
                 catch (Exception ex)
                 {

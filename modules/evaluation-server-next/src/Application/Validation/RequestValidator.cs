@@ -3,10 +3,12 @@ using Domain.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Internal;
 using Microsoft.Extensions.Logging;
+using Application;
 using Application.Services;
 using Infrastructure.Connections;
+using Infrastructure.Protocol;
 
-namespace Streaming.Connections;
+namespace Application.Validation;
 
 public sealed class RequestValidator(
     ISystemClock systemClock,

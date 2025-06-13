@@ -3,6 +3,7 @@ using Infrastructure.Protocol;
 using DataStore.Caches.Redis;
 using Microsoft.Extensions.Logging;
 using Domain.Shared;
+using StackExchange.Redis;
 
 namespace Infrastructure.Providers.Redis;
 
@@ -22,7 +23,8 @@ public class RedisChannelPublisher : IChannelPublisher
         try
         {
             var jsonMessage = System.Text.Json.JsonSerializer.Serialize(message, ReusableJsonSerializerOptions.Web);
-            await _redisClient.GetDatabase().PublishAsync(channelId, jsonMessage);
+            var redisChannel = RedisChannel.Literal(channelId); // Explicitly specify the channel as a literal
+            await _redisClient.GetDatabase().PublishAsync(redisChannel, jsonMessage);
             _logger.LogDebug("Channel message {Message} was published successfully to channel {Channel}", jsonMessage, channelId);
         }
         catch (Exception ex)

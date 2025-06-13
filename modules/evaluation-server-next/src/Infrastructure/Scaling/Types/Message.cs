@@ -6,7 +6,7 @@ namespace Infrastructure.Scaling.Types
     public class Message
     {
         [JsonPropertyName("type")]
-        public string Type { get; set; }
+        public required string Type { get; set; }
 
         [JsonPropertyName("channelId")]
         public string? ChannelId { get; set; }

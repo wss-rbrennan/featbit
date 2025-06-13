@@ -4,7 +4,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Streaming.Connections;
 using Streaming.Messages;
-using Infrastructure.Connections; 
+using Infrastructure.Connections;
+using Application.Validation;
 
 namespace Streaming;
 
