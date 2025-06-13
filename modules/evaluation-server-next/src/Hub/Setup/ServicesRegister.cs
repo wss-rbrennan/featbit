@@ -58,7 +58,7 @@ public static class ServicesRegister
 
         // Add backplane services
         services
-            .AddBackplane(options =>
+            .AddRelayProxySupport(options =>
             {
                 options.SupportedTypes = supportedTypes;
             }).UseBackplane(configuration);

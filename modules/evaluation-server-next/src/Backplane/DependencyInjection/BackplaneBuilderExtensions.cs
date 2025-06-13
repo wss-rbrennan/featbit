@@ -1,10 +1,13 @@
-﻿using Backplane.Consumers;
-using Application.Services;
-using Infrastructure.BackplaneMesssages;
+﻿using Application.Services;
+using Application.Validation;
+using Backplane.Consumers;
 using Domain.Messages;
 using Infrastructure;
+using Infrastructure.BackplaneMesssages;
+using Infrastructure.MQ.Redis;
 using Infrastructure.Providers;
 using Infrastructure.Providers.Redis;
+using Infrastructure.Scaling.Service;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -12,8 +15,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Infrastructure.MQ.Redis;
-using Infrastructure.Scaling.Service;
+using Microsoft.Extensions.Internal;
+using Domain;
+using Infrastructure.Scaling.Handlers;
+using Backplane.Messages;
 
 namespace Backplane.DependencyInjection
 {
@@ -39,6 +44,22 @@ namespace Backplane.DependencyInjection
                     AddRedis(config);
                     break;
             }
+
+            // system clock
+            services.AddSingleton<ISystemClock, SystemClock>();
+
+            // request validator
+            services.AddSingleton<IRequestValidator, RequestValidator>();
+
+            services
+            .AddEvaluator();
+
+            services
+            .AddSingleton<IChannelProducer, Infrastructure.Providers.Redis.RedisChannelProducer>();
+            // message handlers
+            services
+                .AddSingleton<IMessageHandler, DataSyncMessageHandler>()
+                .AddSingleton<Infrastructure.Channels.IChannelPublisher, Infrastructure.Providers.Redis.RedisChannelPublisher>();
 
             return builder;
 
