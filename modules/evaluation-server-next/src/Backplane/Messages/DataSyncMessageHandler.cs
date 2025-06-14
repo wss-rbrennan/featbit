@@ -48,7 +48,22 @@ namespace Backplane.Messages
         {
             var connectionContext = ctx.Connection;
 
-            var message = ctx.Data.Deserialize<DataSyncMessage>(ReusableJsonSerializerOptions.Web);
+            // First, parse the JSON to extract the "data" property
+            using var document = JsonDocument.Parse(ctx.Data.ToString());
+            var root = document.RootElement;
+            
+            DataSyncMessage? message = null;
+            if (root.TryGetProperty("data", out var dataElement))
+            {
+                // Deserialize the "data" property to DataSyncMessage
+                message = dataElement.Deserialize<DataSyncMessage>(ReusableJsonSerializerOptions.Web);
+            }
+            else
+            {
+                // Fallback: try to deserialize the entire JSON as DataSyncMessage (for backward compatibility)
+                message = ctx.Data.Deserialize<DataSyncMessage>(ReusableJsonSerializerOptions.Web);
+            }
+            
             if (message == null)
             {
                 return;
