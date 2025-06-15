@@ -873,7 +873,7 @@ namespace Streaming.Scaling.Service
                     break;
 
                 case "ping":
-                    _logger.LogDebug("Handling ping message from client {Id}", id);
+                    _logger.LogTrace("Handling ping message from client {Id}", id);
                     await HandlePingMessage(ctx);
                     break;
 
