@@ -80,7 +80,9 @@ namespace Infrastructure.Providers.Redis
                         return;
                     }
 
-                    await handler.HandleAsync(messageContext);
+                    // Create an enhanced message context that includes the full message metadata
+                    var enhancedMessageContext = new EnhancedMessageContext(messageContext, message);
+                    await handler.HandleAsync(enhancedMessageContext);
 
                     if (message != null)
                     {

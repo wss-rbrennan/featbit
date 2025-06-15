@@ -102,6 +102,7 @@ public static class StreamingBuilderExtensions
         services.AddSingleton<IWebSocketService, WebSocketService>();
         services.AddHostedService<WebSocketService>();
         services.AddHostedService<WebSocketShutdownService>();
+        services.AddApplicationShutdownMonitoring();
 
         return builder;
     }

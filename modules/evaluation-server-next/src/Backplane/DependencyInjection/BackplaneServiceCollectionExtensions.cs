@@ -8,6 +8,7 @@ using Infrastructure.Providers;
 using DataStore.Persistence;
 using DataStore.Persistence.MongoDb;
 using Microsoft.Extensions.Internal;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using DataStore.Caches.Redis;
 using IRedisClient = DataStore.Caches.Redis.IRedisClient;
@@ -31,6 +32,34 @@ public static class BackplaneServiceCollectionExtensions
         services.AddSingleton(options);
 
         if (options.SupportedTypes.Contains(ConnectionType.RelayProxy))
+        {
+            services.AddTransient<IRelayProxyService, RelayProxyService>();
+        }
+
+        return new BackplaneBuilder(services);
+    }
+
+    public static IBackplaneBuilder AddRelayProxySupport(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        Action<StreamingOptions>? configureOptions = null)
+    {
+        // Configure StreamingOptions from configuration
+        services.AddOptionsWithValidateOnStart<StreamingOptions>()
+            .Bind(configuration.GetSection(StreamingOptions.Streaming))
+            .PostConfigure(configureOptions ?? (_ => { }));
+
+        // Register as singleton for dependency injection
+        services.AddSingleton<StreamingOptions>(provider => 
+            provider.GetRequiredService<IOptions<StreamingOptions>>().Value);
+
+        // Get options to check supported types
+        var optionsBuilder = configuration.GetSection(StreamingOptions.Streaming);
+        var configuredOptions = new StreamingOptions();
+        optionsBuilder.Bind(configuredOptions);
+        configureOptions?.Invoke(configuredOptions);
+
+        if (configuredOptions.SupportedTypes.Contains(ConnectionType.RelayProxy))
         {
             services.AddTransient<IRelayProxyService, RelayProxyService>();
         }

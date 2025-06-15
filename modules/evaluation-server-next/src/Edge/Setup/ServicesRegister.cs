@@ -7,6 +7,8 @@ using Streaming.Metrics;
 using System.Diagnostics.Metrics;
 using DataStore.Caches;
 using DataStore.DependencyInjection;
+using System.Runtime;
+using Infrastructure.Scaling.Service;
 
 namespace Edge.Setup;
 
@@ -16,6 +18,9 @@ public static class ServicesRegister
     {
         var services = builder.Services;
         var configuration = builder.Configuration;
+
+        // Configure threading and GC for high-load scenarios
+        ConfigurePerformanceSettings(configuration);
 
         services.AddControllers();
 
@@ -54,13 +59,48 @@ public static class ServicesRegister
 
         services.AddSingleton<IChannelPublisher, RedisChannelPublisher>();
 
+        // Performance monitoring
+        services.AddHostedService<PerformanceMonitoringService>();
+
         // streaming services
         services
-            .AddStreamingCore()
+            .AddStreamingCore(configuration)
             .UseScaling();
             //.UseStore(configuration)
             //.UseMq(configuration);
 
         return builder;
+    }
+
+    private static void ConfigurePerformanceSettings(IConfiguration configuration)
+    {
+        var performanceSection = configuration.GetSection("Performance");
+        
+        // Configure thread pool for high-load scenarios
+        var minWorkerThreads = Math.Max(Environment.ProcessorCount * 8, 100);
+        var minCompletionPortThreads = Math.Max(Environment.ProcessorCount * 8, 100);
+        var maxWorkerThreads = Math.Max(Environment.ProcessorCount * 32, 1000);
+        var maxCompletionPortThreads = Math.Max(Environment.ProcessorCount * 32, 1000);
+        
+        ThreadPool.SetMinThreads(minWorkerThreads, minCompletionPortThreads);
+        ThreadPool.SetMaxThreads(maxWorkerThreads, maxCompletionPortThreads);
+
+        // Configure GC for server workloads
+        var gcMode = performanceSection.GetValue<string>("GCCollectionMode");
+        if (gcMode == "Optimized")
+        {
+            GCSettings.LatencyMode = GCLatencyMode.Batch;
+        }
+
+        // Configure process priority for better performance
+        try
+        {
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
+            process.PriorityClass = System.Diagnostics.ProcessPriorityClass.High;
+        }
+        catch
+        {
+            // Ignore if we can't set priority
+        }
     }
 }

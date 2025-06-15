@@ -15,6 +15,7 @@ using Infrastructure.Providers.Redis;
 using Infrastructure.BackplaneMesssages;
 using Backplane.Messages;
 using Infrastructure.Scaling.Handlers;
+using Infrastructure.Scaling.Service;
 
 namespace Api.Setup;
 
@@ -58,7 +59,7 @@ public static class ServicesRegister
 
         // Add backplane services
         services
-            .AddRelayProxySupport(options =>
+            .AddRelayProxySupport(configuration, options =>
             {
                 options.SupportedTypes = supportedTypes;
             }).UseBackplane(configuration);
@@ -73,6 +74,10 @@ public static class ServicesRegister
 
         services
             .AddHostedService<RedisMessageConsumer>();
+        
+        // Add application shutdown monitoring
+        services.AddApplicationShutdownMonitoring();
+        
         return builder;
     }
 }

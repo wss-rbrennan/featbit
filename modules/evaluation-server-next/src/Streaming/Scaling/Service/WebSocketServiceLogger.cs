@@ -6,19 +6,19 @@ namespace Streaming.Scaling.Service
     {
         [LoggerMessage(
             EventId = 1,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "Setting up subscription for pattern: {Pattern}")]
         public static partial void SettingUpSubscription(this ILogger logger, string pattern);
 
         [LoggerMessage(
             EventId = 2,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "Received message from channel {Pattern}: {Message}")]
         public static partial void ReceivedChannelMessage(this ILogger logger, string pattern, string message);
 
         [LoggerMessage(
             EventId = 3,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "Broadcasting to channel: {ChannelId}")]
         public static partial void BroadcastToSubscribers(this ILogger logger, string channelId);
 
@@ -36,19 +36,19 @@ namespace Streaming.Scaling.Service
 
         [LoggerMessage(
             EventId = 6,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "New WebSocket connection established")]
         public static partial void NewWebSocketConnection(this ILogger logger);
 
         [LoggerMessage(
             EventId = 7,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "Created subscription with ID: {Id}")]
         public static partial void CreatedSubscription(this ILogger logger, string id);
 
         [LoggerMessage(
             EventId = 8,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "Received message of type {MessageType} with length {Length}")]
         public static partial void ReceivedMessage(this ILogger logger, string messageType, int length);
 
@@ -66,7 +66,7 @@ namespace Streaming.Scaling.Service
 
         [LoggerMessage(
             EventId = 11,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "Handling message content: {Content}")]
         public static partial void HandlingMessageContent(this ILogger logger, string content);
 
@@ -84,13 +84,13 @@ namespace Streaming.Scaling.Service
 
         [LoggerMessage(
             EventId = 14,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "Added channel {Channel} to subscription {Id}")]
         public static partial void AddedChannelToSubscription(this ILogger logger, string channel, string id);
 
         [LoggerMessage(
             EventId = 15,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "Unsubscribing from channel: {Channel}")]
         public static partial void UnsubscribingFromChannel(this ILogger logger, string channel);
 
@@ -120,13 +120,13 @@ namespace Streaming.Scaling.Service
 
         [LoggerMessage(
             EventId = 20,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "Message created with ServiceType: {ServiceType}, SenderId: {SenderId} and CorrelationId: {CorrelationId}")]
         public static partial void MessageCreatedWithCorrelation(this ILogger logger, string? serviceType, string? senderId, string? correlationId);
 
         [LoggerMessage(
             EventId = 21,
-            Level = LogLevel.Information,
+            Level = LogLevel.Debug,
             Message = "Processing message from ServiceType: {ServiceType}, SenderId: {SenderId} with CorrelationId: {CorrelationId}")]
         public static partial void ProcessingMessageWithCorrelation(this ILogger logger, string? serviceType, string? senderId, string? correlationId);
 

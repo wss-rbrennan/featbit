@@ -9,13 +9,16 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Streaming.Scaling.Service
 {
-    public class SubscriptionService : ISubscriptionService
+    public class SubscriptionService : ISubscriptionService, IDisposable
     {
         private readonly Subscriptions _subscriptions;
         private readonly ILogger<SubscriptionService> _logger;
+        private readonly object _subscriptionsLock = new object();
+        private readonly CancellationTokenSource _shutdownTokenSource = new();
 
         public SubscriptionService(ILogger<SubscriptionService> logger) 
         {
@@ -26,87 +29,255 @@ namespace Streaming.Scaling.Service
         public string AddSubscription(WebSocket ws)
         {
             var id = Helper.GenerateRandomId();
-            _subscriptions[id] = new Subscription(ws);
+            lock (_subscriptionsLock)
+            {
+                _subscriptions[id] = new Subscription(ws);
+            }
             return id;
         }
 
         public void AddChannelToSubscription(string id, string channel)
         {
-            if (_subscriptions.TryGetValue(id, out var subscription))
+            lock (_subscriptionsLock)
             {
-                subscription.Channels.Add(channel);
+                if (_subscriptions.TryGetValue(id, out var subscription))
+                {
+                    subscription.Channels.Add(channel);
+                }
             }
         }
 
         public void RemoveChannelFromSubscription(string id, string channel)
         {
-            if (_subscriptions.TryGetValue(id, out var subscription))
+            lock (_subscriptionsLock)
             {
-                subscription.Channels.Remove(channel);
+                if (_subscriptions.TryGetValue(id, out var subscription))
+                {
+                    subscription.Channels.Remove(channel);
+                }
             }
         }
 
         public void RemoveSubscription(string id)
         {
-            if (_subscriptions.ContainsKey(id))
+            lock (_subscriptionsLock)
             {
-                _subscriptions.Remove(id);
-                _logger.LogDebug($"Removed subscription {id}");
+                if (_subscriptions.ContainsKey(id))
+                {
+                    _subscriptions.Remove(id);
+                    _logger.LogDebug($"Removed subscription {id}");
+                }
             }
         }
 
         public bool IsFirstSubscriber(string channel)
         {
-            return _subscriptions.Values.Count(subscription => subscription.Channels.Contains(channel)) == 1;
+            lock (_subscriptionsLock)
+            {
+                return _subscriptions.Values.ToList().Count(subscription => subscription.Channels.Contains(channel)) == 1;
+            }
         }
 
         public bool IsLastSubscriber(string channel)
         {
-            return _subscriptions.Values.Count(subscription => subscription.Channels.Contains(channel)) == 0;
+            lock (_subscriptionsLock)
+            {
+                return _subscriptions.Values.ToList().Count(subscription => subscription.Channels.Contains(channel)) == 0;
+            }
         }
 
-        public async Task BroadcastToSubscribersAsync(string channel, string message, List<string>? subscriberIds = null)
+        public async Task BroadcastToSubscribersAsync(string channelId, string message)
         {
-            var subscribers = GetSubscriptions()
-                .Where(s => s.Value.Channels.Contains(channel))
-                .ToList();
+            await BroadcastToSubscribersAsync(channelId, message, null);
+        }
 
-            if (subscriberIds != null)
+        public async Task BroadcastToSubscribersAsync(string channelId, string message, List<string>? subscriberIds = null)
+        {
+            // Check if shutdown has been initiated
+            if (_shutdownTokenSource.Token.IsCancellationRequested)
             {
-                subscribers = subscribers.Where(s => subscriberIds.Contains(s.Key)).ToList();
+                return;
             }
 
-            foreach (var subscriber in subscribers)
+            List<Subscription> subscriptions;
+            lock (_subscriptionsLock)
             {
-                await BroadcastToSubscriberAsync(subscriber.Key, message);
+                subscriptions = _subscriptions.Values
+                    .Where(s => s.Channels.Contains(channelId))
+                    .ToList();
+                    
+                // Filter by specific subscriber IDs if provided
+                if (subscriberIds != null && subscriberIds.Count > 0)
+                {
+                    var filteredSubscriptions = new List<Subscription>();
+                    foreach (var kvp in _subscriptions)
+                    {
+                        if (subscriberIds.Contains(kvp.Key) && kvp.Value.Channels.Contains(channelId))
+                        {
+                            filteredSubscriptions.Add(kvp.Value);
+                        }
+                    }
+                    subscriptions = filteredSubscriptions;
+                }
+            }
+
+            if (subscriptions.Count == 0)
+            {
+                return;
+            }
+
+            // Use parallel processing for better performance with many connections
+            var messageBytes = Encoding.UTF8.GetBytes(message);
+            var tasks = new List<Task>();
+            var semaphore = new SemaphoreSlim(Environment.ProcessorCount * 4, Environment.ProcessorCount * 4);
+
+            foreach (var subscription in subscriptions)
+            {
+                tasks.Add(SendToSubscriptionAsync(subscription, messageBytes, semaphore));
+            }
+
+            try
+            {
+                await Task.WhenAll(tasks);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error broadcasting to subscribers for channel {ChannelId}", channelId);
+            }
+            finally
+            {
+                semaphore.Dispose();
             }
         }
 
         public async Task BroadcastToSubscriberAsync(string subscriberId, string message)
         {
-            if (_subscriptions.TryGetValue(subscriberId, out var subscription))
+            // Check if shutdown has been initiated
+            if (_shutdownTokenSource.Token.IsCancellationRequested)
             {
-                await subscription.WebSocket.SendAsync(
-                    new ArraySegment<byte>(Encoding.UTF8.GetBytes(message)),
-                    WebSocketMessageType.Text,
-                    true,
-                    CancellationToken.None);
+                return;
+            }
+
+            Subscription? subscription;
+            lock (_subscriptionsLock)
+            {
+                _subscriptions.TryGetValue(subscriberId, out subscription);
+            }
+
+            if (subscription != null)
+            {
+                var messageBytes = Encoding.UTF8.GetBytes(message);
+                var semaphore = new SemaphoreSlim(1, 1);
+                
+                try
+                {
+                    await SendToSubscriptionAsync(subscription, messageBytes, semaphore);
+                }
+                finally
+                {
+                    semaphore.Dispose();
+                }
+            }
+        }
+
+        private async Task SendToSubscriptionAsync(Subscription subscription, byte[] messageBytes, SemaphoreSlim semaphore)
+        {
+            await semaphore.WaitAsync();
+            try
+            {
+                // Check if WebSocket is disposed before accessing State property
+                try
+                {
+                    if (subscription.WebSocket.State == WebSocketState.Open)
+                    {
+                        await subscription.WebSocket.SendAsync(
+                            new ArraySegment<byte>(messageBytes),
+                            WebSocketMessageType.Text,
+                            true,
+                            _shutdownTokenSource.Token);
+                    }
+                    else
+                    {
+                        // Remove dead connection
+                        RemoveSubscriptionFromTracking(subscription);
+                    }
+                }
+                catch (ObjectDisposedException)
+                {
+                    // WebSocket has been disposed (likely during shutdown) - silently remove from tracking
+                    RemoveSubscriptionFromTracking(subscription);
+                }
+            }
+            catch (WebSocketException ex)
+            {
+                _logger.LogDebug(ex, "WebSocket error sending message to subscriber");
+                // Remove the subscription if the WebSocket is in a bad state
+                RemoveSubscriptionFromTracking(subscription);
+            }
+            catch (OperationCanceledException)
+            {
+                // Operation was cancelled (likely during shutdown) - silently remove from tracking
+                RemoveSubscriptionFromTracking(subscription);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error sending message to subscriber");
+                RemoveSubscriptionFromTracking(subscription);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        private void RemoveSubscriptionFromTracking(Subscription subscription)
+        {
+            lock (_subscriptionsLock)
+            {
+                var toRemove = _subscriptions.FirstOrDefault(kvp => kvp.Value == subscription);
+                if (toRemove.Key != null)
+                {
+                    _subscriptions.Remove(toRemove.Key);
+                }
             }
         }
 
         public Subscriptions GetSubscriptions()
         {
-            return _subscriptions;
+            lock (_subscriptionsLock)
+            {
+                var copy = new Subscriptions();
+                foreach (var kvp in _subscriptions)
+                {
+                    copy[kvp.Key] = kvp.Value;
+                }
+                return copy;
+            }
         }
 
         public async Task DisconnectAllAsync(WebSocketCloseStatus closeStatus = WebSocketCloseStatus.NormalClosure, string statusDescription = "Server shutdown")
         {
-            var connectionCount = _subscriptions.Count;
+            // Signal shutdown to prevent new broadcasts
+            _shutdownTokenSource.Cancel();
+
+            List<KeyValuePair<string, Subscription>> subscriptionsSnapshot;
+            lock (_subscriptionsLock)
+            {
+                subscriptionsSnapshot = _subscriptions.ToList();
+            }
+
+            var connectionCount = subscriptionsSnapshot.Count;
             WebSocketServiceLogger.WebSocketShutdownInitiated(_logger, connectionCount);
+
+            if (connectionCount == 0)
+            {
+                WebSocketServiceLogger.WebSocketShutdownCompleted(_logger);
+                return;
+            }
 
             var disconnectTasks = new List<Task>();
 
-            foreach (var kvp in _subscriptions.ToList()) // ToList() to avoid modification during enumeration
+            foreach (var kvp in subscriptionsSnapshot)
             {
                 var subscriptionId = kvp.Key;
                 var subscription = kvp.Value;
@@ -118,20 +289,37 @@ namespace Streaming.Scaling.Service
             // Wait for all disconnections to complete with a reasonable timeout
             try
             {
-                await Task.WhenAll(disconnectTasks).WaitAsync(TimeSpan.FromSeconds(30));
+                await Task.WhenAll(disconnectTasks).WaitAsync(TimeSpan.FromSeconds(10));
                 WebSocketServiceLogger.WebSocketShutdownCompleted(_logger);
             }
             catch (TimeoutException)
             {
-                _logger.LogWarning("Timeout occurred while disconnecting WebSocket connections");
+                _logger.LogWarning("Timeout occurred while disconnecting WebSocket connections, forcing shutdown");
+                // Force clear all subscriptions on timeout
+                lock (_subscriptionsLock)
+                {
+                    _subscriptions.Clear();
+                }
             }
             catch (Exception ex)
             {
                 WebSocketServiceLogger.WebSocketShutdownError(_logger, ex);
+                // Force clear all subscriptions on error
+                lock (_subscriptionsLock)
+                {
+                    _subscriptions.Clear();
+                }
             }
 
-            // Clear all subscriptions after attempting to disconnect
-            _subscriptions.Clear();
+            // Ensure all subscriptions are cleared
+            lock (_subscriptionsLock)
+            {
+                if (_subscriptions.Count > 0)
+                {
+                    _logger.LogInformation("Clearing {Count} remaining subscriptions", _subscriptions.Count);
+                    _subscriptions.Clear();
+                }
+            }
             _logger.LogInformation("All subscriptions cleared");
         }
 
@@ -160,9 +348,17 @@ namespace Streaming.Scaling.Service
             finally
             {
                 // Remove the subscription from our tracking
-                _subscriptions.Remove(subscriptionId);
+                lock (_subscriptionsLock)
+                {
+                    _subscriptions.Remove(subscriptionId);
+                }
                 _logger.LogDebug("Removed subscription {SubscriptionId} from tracking", subscriptionId);
             }
+        }
+
+        public void Dispose()
+        {
+            _shutdownTokenSource?.Dispose();
         }
     }
 } 

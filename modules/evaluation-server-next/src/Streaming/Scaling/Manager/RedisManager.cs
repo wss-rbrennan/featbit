@@ -70,7 +70,7 @@ namespace Streaming.Scaling.Manager
 
         public async Task<long> PublishAsync(string channel, string message)
         {
-            _logger.LogInformation("Publishing message to Redis channel: {Channel}", channel);
+            _logger.LogDebug("Publishing message to Redis channel: {Channel}", channel);
             try
             {
                 if (!_redis.IsConnected)
@@ -81,7 +81,7 @@ namespace Streaming.Scaling.Manager
 
                 var redisChannel = new RedisChannel(channel, RedisChannel.PatternMode.Literal);
                 var subscriberCount = await _subscriber.PublishAsync(redisChannel, message);
-                _logger.LogInformation("Published message to Redis channel {Channel}, received by {Count} subscribers", channel, subscriberCount);
+                _logger.LogDebug("Published message to Redis channel {Channel}, received by {Count} subscribers", channel, subscriberCount);
                 return subscriberCount;
             }
             catch (Exception ex)
@@ -93,7 +93,7 @@ namespace Streaming.Scaling.Manager
 
         public async Task SubscribeAsync(string channel, Action<string> callback)
         {
-            _logger.LogInformation("Setting up Redis subscription for channel: {Channel}", channel);
+            _logger.LogDebug("Setting up Redis subscription for channel: {Channel}", channel);
             try
             {
                 if (!_redis.IsConnected)
@@ -108,12 +108,12 @@ namespace Streaming.Scaling.Manager
                     ? new RedisChannel(channel, RedisChannel.PatternMode.Pattern)
                     : new RedisChannel(channel, RedisChannel.PatternMode.Literal);
 
-                _logger.LogInformation("Setting up Redis subscription for channel: {Channel} (Pattern: {IsPattern})", channel, isPattern);
+                _logger.LogDebug("Setting up Redis subscription for channel: {Channel} (Pattern: {IsPattern})", channel, isPattern);
                 
                 // Subscribe using the correct pattern mode
                 await _subscriber.SubscribeAsync(redisChannel, (_, value) =>
                 {
-                    _logger.LogInformation("Received message from Redis channel '{Channel}': {Message}", channel, value);
+                    _logger.LogDebug("Received message from Redis channel '{Channel}': {Message}", channel, value);
                     try
                     {
                         callback(value!);
@@ -124,7 +124,7 @@ namespace Streaming.Scaling.Manager
                     }
                 });
                 
-                _logger.LogInformation("Successfully subscribed to Redis channel: {Channel} (Pattern: {IsPattern})", channel, isPattern);
+                _logger.LogDebug("Successfully subscribed to Redis channel: {Channel} (Pattern: {IsPattern})", channel, isPattern);
 
                 // Verify subscription with a properly formatted test message
                 var testMessage = new
@@ -140,7 +140,7 @@ namespace Streaming.Scaling.Manager
                 };
                 var testMessageJson = JsonSerializer.Serialize(testMessage);
                 var subscriptionCount = await _subscriber.PublishAsync(redisChannel, testMessageJson);
-                _logger.LogInformation("Subscription verification - published test message to {Channel}, received by {Count} subscribers", channel, subscriptionCount);
+                _logger.LogDebug("Subscription verification - published test message to {Channel}, received by {Count} subscribers", channel, subscriptionCount);
             }
             catch (Exception ex)
             {
