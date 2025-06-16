@@ -2,7 +2,7 @@
 # https://hub.docker.com/_/microsoft-dotnet
 ARG INSTALL_DIR=/app
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG TARGETARCH
 WORKDIR /source
 
@@ -14,10 +14,10 @@ COPY src/*/*.csproj ./
 RUN for file in $(ls *.csproj); do mkdir -p src/${file%.*}/ && mv $file src/${file%.*}/; done
 
 # copy test project files
-COPY tests/*/*.csproj ./
-RUN for file in $(ls *.csproj); do mkdir -p tests/${file%.*}/ && mv $file tests/${file%.*}/; done
+# COPY tests/*/*.csproj ./
+# RUN for file in $(ls *.csproj); do mkdir -p tests/${file%.*}/ && mv $file tests/${file%.*}/; done
 
-RUN dotnet restore -a $TARGETARCH
+RUN dotnet restore src/Hub/Hub.csproj -a $TARGETARCH
 
 # copy everything else
 COPY . .
@@ -25,16 +25,16 @@ COPY . .
 # publish stage
 FROM build AS publish
 ARG INSTALL_DIR
-WORKDIR /source/src/Api
+WORKDIR /source/src/Hub
 RUN dotnet publish -a $TARGETARCH --no-restore -o $INSTALL_DIR
 
 # final stage/image
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 
 RUN apt-get update && apt-get install -y curl unzip && rm -rf /var/lib/apt/lists/*
 
 ARG INSTALL_DIR
-ARG OTEL_VERSION=1.7.0
+ARG OTEL_VERSION=1.11.0
 
 # ensure we listen on any IP Address
 ENV ASPNETCORE_URLS=http://*:5100 \
