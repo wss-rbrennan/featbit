@@ -33,4 +33,29 @@ public static class MiddlewaresRegister
 
         return app;
     }
+
+    public static WebApplication LogServerUrls(this WebApplication app)
+    {
+        var logger = app.Services.GetRequiredService<ILogger<Program>>();
+        
+        // Log the configured URLs
+        var urls = app.Configuration.GetSection("Kestrel:EndPoints")
+            .GetChildren()
+            .Select(endpoint => endpoint.GetValue<string>("Url"))
+            .Where(url => !string.IsNullOrEmpty(url))
+            .ToList();
+
+        if (urls.Any())
+        {
+            logger.LogInformation("Edge server starting on configured URLs: {Urls}", string.Join(", ", urls));
+        }
+        else
+        {
+            // Log the default URLs if no Kestrel configuration
+            var defaultUrls = app.Configuration.GetValue<string>("urls") ?? "http://localhost:5000;https://localhost:5001";
+            logger.LogInformation("Edge server starting on default URLs: {Urls}", defaultUrls);
+        }
+
+        return app;
+    }
 }

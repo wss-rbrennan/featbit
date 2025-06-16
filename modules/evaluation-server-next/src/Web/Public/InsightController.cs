@@ -1,11 +1,11 @@
-using Api.Setup;
+using Web.Setup;
 using Domain.EndUsers;
 using Domain.Insights;
 using Domain.Messages;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace Api.Public;
+namespace Web.Public;
 
 public class InsightController : PublicApiControllerBase
 {

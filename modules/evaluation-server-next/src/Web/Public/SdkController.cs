@@ -2,7 +2,7 @@ using Domain.EndUsers;
 using Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Api.Public;
+namespace Web.Public;
 
 public class SdkController : PublicApiControllerBase
 {

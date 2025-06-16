@@ -1,7 +1,7 @@
 using Domain.Shared;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Api.Public;
+namespace Web.Public;
 
 [ApiController]
 [Route("api/public/[controller]")]

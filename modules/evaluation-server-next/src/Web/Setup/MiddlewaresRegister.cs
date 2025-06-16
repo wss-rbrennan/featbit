@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Infrastructure;
-using Backplane;
+using Microsoft.AspNetCore.Builder;
 
-namespace Api.Setup;
+namespace Web.Setup;
 
 public static class MiddlewaresRegister
 {
@@ -20,11 +20,8 @@ public static class MiddlewaresRegister
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();
-            app.UseSwaggerUI();
+            app.UseSwagger();
         }
-
-        // enable backplane
-        app.UseBackplane();
 
         // enable cors
         app.UseCors();
@@ -47,13 +44,13 @@ public static class MiddlewaresRegister
 
         if (urls.Any())
         {
-            logger.LogInformation("Hub server starting on configured URLs: {Urls}", string.Join(", ", urls));
+            logger.LogInformation("Web server starting on configured URLs: {Urls}", string.Join(", ", urls));
         }
         else
         {
             // Log the default URLs if no Kestrel configuration
             var defaultUrls = app.Configuration.GetValue<string>("urls") ?? "http://localhost:5000;https://localhost:5001";
-            logger.LogInformation("Hub server starting on default URLs: {Urls}", defaultUrls);
+            logger.LogInformation("Web server starting on default URLs: {Urls}", defaultUrls);
         }
 
         return app;

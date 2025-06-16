@@ -10,12 +10,13 @@ try
         .WriteTo.Console()
         .CreateBootstrapLogger();
 
-    Log.Information("Starting Evaluation Server");
+    Log.Information("Starting Evaluation Edge Server");
 
     WebApplication.CreateBuilder(args)
         .RegisterServices()
         .Build()
         .SetupMiddleware()
+        .LogServerUrls()
         .Run();
 }
 catch (Exception ex)
