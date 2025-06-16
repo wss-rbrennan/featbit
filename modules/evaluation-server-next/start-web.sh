@@ -30,4 +30,4 @@ fi
 
 # Use 'exec' to replace the shell process with the application process.
 # This ensures proper signal handling (e.g., SIGTERM) and graceful shutdown.
-exec dotnet Api.dll
+exec dotnet Web.dll

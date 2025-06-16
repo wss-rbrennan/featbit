@@ -99,8 +99,9 @@ public static class StreamingBuilderExtensions
         services.AddSingleton<IMessageFactory, MessageFactory>();
         services.AddSingleton<IBackplaneManager, RedisManager>();
         services.AddSingleton<ISubscriptionService, SubscriptionService>();
-        services.AddSingleton<IWebSocketService, WebSocketService>();
-        services.AddHostedService<WebSocketService>();
+        services.AddSingleton<WebSocketService>();
+        services.AddSingleton<IWebSocketService>(provider => provider.GetRequiredService<WebSocketService>());
+        services.AddHostedService<WebSocketService>(provider => provider.GetRequiredService<WebSocketService>());
         services.AddHostedService<WebSocketShutdownService>();
         services.AddApplicationShutdownMonitoring();
 

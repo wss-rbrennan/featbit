@@ -67,9 +67,9 @@ namespace Streaming.Scaling.Service
             _serviceIdentityProvider = serviceIdentityProvider;
             _configuration = configuration;
             _cancellationTokenSource = new CancellationTokenSource();
+            _logger = logger;
             _subscriptionLogger = new Timer(LogSubscriptions, null, TimeSpan.Zero, TimeSpan.FromSeconds(30)); // Reduced frequency
             _messageCleanupTimer = new Timer(CleanupProcessedMessages, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
-            _logger = logger;
             
             // Load performance configurations
             var perfSection = configuration.GetSection("Performance");

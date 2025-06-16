@@ -37,13 +37,13 @@ ARG INSTALL_DIR
 ARG OTEL_VERSION=1.11.0
 
 # ensure we listen on any IP Address
-ENV ASPNETCORE_URLS=http://*:5100 \
+ENV ASPNETCORE_URLS=http://*:5000 \
     INSTALL_DIR=$INSTALL_DIR \
     DOTNET_ADDITIONAL_DEPS=$INSTALL_DIR/AdditionalDeps \
     DOTNET_SHARED_STORE=$INSTALL_DIR/store \
     ENABLE_OPENTELEMETRY=false \
     OTEL_DOTNET_AUTO_HOME=$INSTALL_DIR \
-    OTEL_SERVICE_NAME=featbit-els \
+    OTEL_SERVICE_NAME=featbit-els-hub \
     OTEL_TRACES_EXPORTER=otlp \
     OTEL_METRICS_EXPORTER=otlp \
     OTEL_LOGS_EXPORTER=otlp \
@@ -57,13 +57,13 @@ RUN ./otel-dotnet-auto-install.sh
 
 WORKDIR $INSTALL_DIR
 COPY --from=publish $INSTALL_DIR ./
-COPY --from=build /source/start.sh ./start.sh
-RUN chmod +x ./start.sh
-EXPOSE 5100
+COPY --from=build /source/start-hub.sh ./start-hub.sh
+RUN chmod +x ./start-hub.sh
+EXPOSE 5000
 
 # health check
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-  CMD curl --fail --silent http://localhost:5100/health/liveness || exit 1
+  CMD curl --fail --silent http://localhost:5000/health/liveness || exit 1
 
 USER $APP_UID
-ENTRYPOINT ["./start.sh"]
+ENTRYPOINT ["./start-hub.sh"]

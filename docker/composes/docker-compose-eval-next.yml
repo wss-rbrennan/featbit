@@ -1,0 +1,73 @@
+name: featbit-dev
+services:
+  els-edge:
+    image: featbit-els-edge:dev
+    container_name: featbit-els-edge
+    build:
+      context: ./modules/evaluation-server-next
+      dockerfile: ./deploy/Edge/Dockerfile
+    environment:
+      - Redis__ConnectionString=redis:6379
+      - ENABLE_OPENTELEMETRY=true
+      - OTEL_SERVICE_NAME=featbit-els-edge
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317
+      - Streaming__TokenTimeoutMs=180000
+    depends_on:
+      - els-hub
+    ports:
+      - "5021:5000"
+    networks:
+      - featbit-network
+
+  els-hub:
+    image: featbit-els-hub:dev
+    container_name: featbit-els-hub
+    build:
+      context: ./modules/evaluation-server-next
+      dockerfile: ./deploy/Hub/Dockerfile
+    environment:
+      # - SSOEnabled=true
+      - DbProvider=MongoDb
+      - MqProvider=Redis
+      - CacheProvider=Redis
+      - MongoDb__ConnectionString=mongodb://admin:password@mongodb:27017
+      - Redis__ConnectionString=redis:6379
+      - ENABLE_OPENTELEMETRY=true
+      - OTEL_SERVICE_NAME=featbit-els-hub
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317
+    # depends_on:
+    #   - mongodb
+    #   - redis
+    #   - da-server
+    ports:
+      - "5022:5000"
+    networks:
+      - featbit-network
+
+  els-web:
+    image: featbit-els-web:dev
+    container_name: featbit-els-web
+    build:
+      context: ./modules/evaluation-server-next
+      dockerfile: ./deploy/Web/Dockerfile
+    environment:
+      - DbProvider=MongoDb
+      - MqProvider=Redis
+      - CacheProvider=Redis
+      - MongoDb__ConnectionString=mongodb://admin:password@mongodb:27017
+      - Redis__ConnectionString=redis:6379
+      - ENABLE_OPENTELEMETRY=true
+      - OTEL_SERVICE_NAME=featbit-els-web
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317
+    ports:
+      - "5023:5000"
+    networks:
+      - featbit-network
+
+networks:
+  featbit-network:
+    name: featbit-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.1.0.0/16
