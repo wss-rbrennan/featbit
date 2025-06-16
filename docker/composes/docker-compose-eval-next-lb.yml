@@ -1,0 +1,356 @@
+name: featbit-dev-lb
+services:
+  # nginx Load Balancer for Edge servers
+  els-edge-lb:
+    image: nginx:alpine
+    container_name: featbit-els-edge-lb
+    volumes:
+      - ./docker/composes/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/composes/nginx/conf.d:/etc/nginx/conf.d:ro
+    ports:
+      - "5021:80"  # External port for load balancer
+    depends_on:
+      - els-edge-1
+      - els-edge-2
+      - els-edge-3
+    networks:
+      - featbit-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/nginx-health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Edge Server Instance 1
+  els-edge-1:
+    image: featbit-els-edge:dev
+    container_name: featbit-els-edge-1
+    build:
+      context: ./modules/evaluation-server-next
+      dockerfile: ./deploy/Edge/Dockerfile
+    environment:
+      - Redis__ConnectionString=redis:6379
+      - ENABLE_OPENTELEMETRY=true
+      - OTEL_SERVICE_NAME=featbit-els-edge
+      - OTEL_SERVICE_INSTANCE_ID=edge-1
+      - OTEL_RESOURCE_ATTRIBUTES=service.instance.id=edge-1,deployment.environment=development,service.version=1.0.0
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://featbit-otel-collector:4317
+      # Enable OTEL auto-instrumentation for .NET
+      - OTEL_DOTNET_AUTO_TRACES_ENABLED=true
+      - OTEL_DOTNET_AUTO_METRICS_ENABLED=true
+      - OTEL_DOTNET_AUTO_LOGS_ENABLED=true
+      - OTEL_DOTNET_AUTO_INSTRUMENTATION_ENABLED=true
+      # Configure metrics and traces exporters
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+      # Enable specific instrumentations
+      - OTEL_DOTNET_AUTO_TRACES_INSTRUMENTATION_ENABLED=true
+      - OTEL_DOTNET_AUTO_METRICS_INSTRUMENTATION_ENABLED=true
+      # Critical OTEL auto-instrumentation variables
+      - DOTNET_STARTUP_HOOKS=/app/net/OpenTelemetry.AutoInstrumentation.StartupHook.dll
+      - CORECLR_ENABLE_PROFILING=1
+      - CORECLR_PROFILER={918728DD-259F-4A6A-AC2B-B85E1B658318}
+      - CORECLR_PROFILER_PATH=/app/linux-x64/OpenTelemetry.AutoInstrumentation.Native.so
+      # Enable ASP.NET Core metrics
+      - ASPNETCORE_HOSTINGSTARTUPASSEMBLIES=Microsoft.AspNetCore.Mvc.Api.Analyzers
+      - DOTNET_EnableDiagnostics=1
+      # Configure metric collection interval
+      - OTEL_METRIC_EXPORT_INTERVAL=5000
+      - OTEL_BSP_EXPORT_TIMEOUT=30000
+      - Streaming__TokenTimeoutMs=180000
+      - ASPNETCORE_URLS=http://*:5000
+      - CacheProvider=Redis
+      - DbProvider=MongoDb
+      - MqProvider=Redis
+      - MongoDb__ConnectionString=mongodb://admin:password@mongodb:27017
+    depends_on:
+      # - redis
+      # - mongodb
+      - els-hub
+    expose:
+      - "5000"
+    networks:
+      - featbit-network
+    restart: unless-stopped
+
+  # Edge Server Instance 2
+  els-edge-2:
+    image: featbit-els-edge:dev
+    container_name: featbit-els-edge-2
+    build:
+      context: ./modules/evaluation-server-next
+      dockerfile: ./deploy/Edge/Dockerfile
+    environment:
+      - Redis__ConnectionString=redis:6379
+      - ENABLE_OPENTELEMETRY=true
+      - OTEL_SERVICE_NAME=featbit-els-edge
+      - OTEL_SERVICE_INSTANCE_ID=edge-2
+      - OTEL_RESOURCE_ATTRIBUTES=service.instance.id=edge-2,deployment.environment=development,service.version=1.0.0
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://featbit-otel-collector:4317
+      # Enable OTEL auto-instrumentation for .NET
+      - OTEL_DOTNET_AUTO_TRACES_ENABLED=true
+      - OTEL_DOTNET_AUTO_METRICS_ENABLED=true
+      - OTEL_DOTNET_AUTO_LOGS_ENABLED=true
+      - OTEL_DOTNET_AUTO_INSTRUMENTATION_ENABLED=true
+      # Configure metrics and traces exporters
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+      # Enable specific instrumentations
+      - OTEL_DOTNET_AUTO_TRACES_INSTRUMENTATION_ENABLED=true
+      - OTEL_DOTNET_AUTO_METRICS_INSTRUMENTATION_ENABLED=true
+      # Critical OTEL auto-instrumentation variables
+      - DOTNET_STARTUP_HOOKS=/app/net/OpenTelemetry.AutoInstrumentation.StartupHook.dll
+      - CORECLR_ENABLE_PROFILING=1
+      - CORECLR_PROFILER={918728DD-259F-4A6A-AC2B-B85E1B658318}
+      - CORECLR_PROFILER_PATH=/app/linux-x64/OpenTelemetry.AutoInstrumentation.Native.so
+      # Enable ASP.NET Core metrics
+      - ASPNETCORE_HOSTINGSTARTUPASSEMBLIES=Microsoft.AspNetCore.Mvc.Api.Analyzers
+      - DOTNET_EnableDiagnostics=1
+      # Configure metric collection interval
+      - OTEL_METRIC_EXPORT_INTERVAL=5000
+      - OTEL_BSP_EXPORT_TIMEOUT=30000
+      - Streaming__TokenTimeoutMs=180000
+      - ASPNETCORE_URLS=http://*:5000
+      - CacheProvider=Redis
+      - DbProvider=MongoDb
+      - MqProvider=Redis
+      - MongoDb__ConnectionString=mongodb://admin:password@mongodb:27017
+    depends_on:
+      # - redis
+      # - mongodb
+      - els-hub
+    expose:
+      - "5000"
+    networks:
+      - featbit-network
+    restart: unless-stopped
+
+  # Edge Server Instance 3
+  els-edge-3:
+    image: featbit-els-edge:dev
+    container_name: featbit-els-edge-3
+    build:
+      context: ./modules/evaluation-server-next
+      dockerfile: ./deploy/Edge/Dockerfile
+    environment:
+      - Redis__ConnectionString=redis:6379
+      - ENABLE_OPENTELEMETRY=true
+      - OTEL_SERVICE_NAME=featbit-els-edge
+      - OTEL_SERVICE_INSTANCE_ID=edge-3
+      - OTEL_RESOURCE_ATTRIBUTES=service.instance.id=edge-3,deployment.environment=development,service.version=1.0.0
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://featbit-otel-collector:4317
+      # Enable OTEL auto-instrumentation for .NET
+      - OTEL_DOTNET_AUTO_TRACES_ENABLED=true
+      - OTEL_DOTNET_AUTO_METRICS_ENABLED=true
+      - OTEL_DOTNET_AUTO_LOGS_ENABLED=true
+      - OTEL_DOTNET_AUTO_INSTRUMENTATION_ENABLED=true
+      # Configure metrics and traces exporters
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+      # Enable specific instrumentations
+      - OTEL_DOTNET_AUTO_TRACES_INSTRUMENTATION_ENABLED=true
+      - OTEL_DOTNET_AUTO_METRICS_INSTRUMENTATION_ENABLED=true
+      # Critical OTEL auto-instrumentation variables
+      - DOTNET_STARTUP_HOOKS=/app/net/OpenTelemetry.AutoInstrumentation.StartupHook.dll
+      - CORECLR_ENABLE_PROFILING=1
+      - CORECLR_PROFILER={918728DD-259F-4A6A-AC2B-B85E1B658318}
+      - CORECLR_PROFILER_PATH=/app/linux-x64/OpenTelemetry.AutoInstrumentation.Native.so
+      # Enable ASP.NET Core metrics
+      - ASPNETCORE_HOSTINGSTARTUPASSEMBLIES=Microsoft.AspNetCore.Mvc.Api.Analyzers
+      - DOTNET_EnableDiagnostics=1
+      # Configure metric collection interval
+      - OTEL_METRIC_EXPORT_INTERVAL=5000
+      - OTEL_BSP_EXPORT_TIMEOUT=30000
+      - Streaming__TokenTimeoutMs=180000
+      - ASPNETCORE_URLS=http://*:5000
+      - CacheProvider=Redis
+      - DbProvider=MongoDb
+      - MqProvider=Redis
+      - MongoDb__ConnectionString=mongodb://admin:password@mongodb:27017
+    # depends_on:
+    #   - redis
+    #   - mongodb
+      - els-hub
+    expose:
+      - "5000"
+    networks:
+      - featbit-network
+    restart: unless-stopped
+
+  # Hub Service
+  els-hub:
+    image: featbit-els-hub:dev
+    container_name: featbit-els-hub
+    build:
+      context: ./modules/evaluation-server-next
+      dockerfile: ./deploy/Hub/Dockerfile
+    environment:
+      - DbProvider=MongoDb
+      - MqProvider=Redis
+      - CacheProvider=Redis
+      - MongoDb__ConnectionString=mongodb://admin:password@mongodb:27017
+      - Redis__ConnectionString=redis:6379
+      - ENABLE_OPENTELEMETRY=true
+      - OTEL_SERVICE_NAME=featbit-els-hub
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://featbit-otel-collector:4317
+      # Enable OTEL auto-instrumentation for .NET
+      - OTEL_DOTNET_AUTO_TRACES_ENABLED=true
+      - OTEL_DOTNET_AUTO_METRICS_ENABLED=true
+      - OTEL_DOTNET_AUTO_LOGS_ENABLED=true
+      - OTEL_DOTNET_AUTO_INSTRUMENTATION_ENABLED=true
+      # Configure metrics and traces exporters
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+      # Enable specific instrumentations
+      - OTEL_DOTNET_AUTO_TRACES_INSTRUMENTATION_ENABLED=true
+      - OTEL_DOTNET_AUTO_METRICS_INSTRUMENTATION_ENABLED=true
+      # Critical OTEL auto-instrumentation variables
+      - DOTNET_STARTUP_HOOKS=/app/net/OpenTelemetry.AutoInstrumentation.StartupHook.dll
+      - CORECLR_ENABLE_PROFILING=1
+      - CORECLR_PROFILER={918728DD-259F-4A6A-AC2B-B85E1B658318}
+      - CORECLR_PROFILER_PATH=/app/linux-x64/OpenTelemetry.AutoInstrumentation.Native.so
+      # Enable ASP.NET Core metrics
+      - ASPNETCORE_HOSTINGSTARTUPASSEMBLIES=Microsoft.AspNetCore.Mvc.Api.Analyzers
+      - DOTNET_EnableDiagnostics=1
+      # Configure metric collection interval
+      - OTEL_METRIC_EXPORT_INTERVAL=5000
+      - OTEL_BSP_EXPORT_TIMEOUT=30000
+    # depends_on:
+    #   - redis
+    #   - mongodb
+    ports:
+      - "5022:5000"
+    networks:
+      - featbit-network
+    restart: unless-stopped
+
+  # Web Service
+  els-web:
+    image: featbit-els-web:dev
+    container_name: featbit-els-web
+    build:
+      context: ./modules/evaluation-server-next
+      dockerfile: ./deploy/Web/Dockerfile
+    environment:
+      - DbProvider=MongoDb
+      - MqProvider=Redis
+      - CacheProvider=Redis
+      - MongoDb__ConnectionString=mongodb://admin:password@mongodb:27017
+      - Redis__ConnectionString=redis:6379
+      - ENABLE_OPENTELEMETRY=true
+      - OTEL_SERVICE_NAME=featbit-els-web
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://featbit-otel-collector:4317
+      # Enable OTEL auto-instrumentation for .NET
+      - OTEL_DOTNET_AUTO_TRACES_ENABLED=true
+      - OTEL_DOTNET_AUTO_METRICS_ENABLED=true
+      - OTEL_DOTNET_AUTO_LOGS_ENABLED=true
+      - OTEL_DOTNET_AUTO_INSTRUMENTATION_ENABLED=true
+      # Configure metrics and traces exporters
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+      # Enable specific instrumentations
+      - OTEL_DOTNET_AUTO_TRACES_INSTRUMENTATION_ENABLED=true
+      - OTEL_DOTNET_AUTO_METRICS_INSTRUMENTATION_ENABLED=true
+      # Critical OTEL auto-instrumentation variables
+      - DOTNET_STARTUP_HOOKS=/app/net/OpenTelemetry.AutoInstrumentation.StartupHook.dll
+      - CORECLR_ENABLE_PROFILING=1
+      - CORECLR_PROFILER={918728DD-259F-4A6A-AC2B-B85E1B658318}
+      - CORECLR_PROFILER_PATH=/app/linux-x64/OpenTelemetry.AutoInstrumentation.Native.so
+      # Enable ASP.NET Core metrics
+      - ASPNETCORE_HOSTINGSTARTUPASSEMBLIES=Microsoft.AspNetCore.Mvc.Api.Analyzers
+      - DOTNET_EnableDiagnostics=1
+      # Configure metric collection interval
+      - OTEL_METRIC_EXPORT_INTERVAL=5000
+      - OTEL_BSP_EXPORT_TIMEOUT=30000
+    # depends_on:
+    #   - redis
+    #   - mongodb
+    ports:
+      - "5023:5000"
+    networks:
+      - featbit-network
+    restart: unless-stopped
+
+  # Redis Service
+  # redis:
+  #   image: redis:7.2-alpine
+  #   container_name: featbit-redis
+  #   command: redis-server --requirepass password
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - featbit-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "-a", "password", "ping"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+  # # MongoDB Service
+  # mongodb:
+  #   image: mongo:7.0
+  #   container_name: featbit-mongodb
+  #   environment:
+  #     MONGO_INITDB_ROOT_USERNAME: admin
+  #     MONGO_INITDB_ROOT_PASSWORD: password
+  #     MONGO_INITDB_DATABASE: featbit
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongodb_data:/data/db
+  #   networks:
+  #     - featbit-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+  # OpenTelemetry Collector (optional, for observability)
+  otel:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: featbit-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./docker/composes/otel/featbit-otel-config.yaml:/etc/otel-collector-config.yaml:ro
+    # ports:
+    #   - "4317:4317"   # OTLP gRPC receiver
+    #   - "4318:4318"   # OTLP HTTP receiver
+    #   - "8888:8888"   # Prometheus metrics
+    networks:
+      - featbit-network
+      - otel
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
+  mongodb_data:
+    driver: local
+
+networks:
+  featbit-network:
+    name: featbit-network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.1.0.0/16
+  otel:
+    # driver: bridge
+    name: otel
+    external: true

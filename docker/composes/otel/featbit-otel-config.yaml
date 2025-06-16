@@ -1,0 +1,128 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Prometheus receiver to scrape metrics from .NET services
+  prometheus:
+    config:
+      scrape_configs:
+        # Since Edge services are behind load balancer, we'll scrape the exposed Hub and Web services
+        # and let OTEL auto-instrumentation handle the Edge metrics via OTLP
+        - job_name: 'featbit-hub-service'
+          scrape_interval: 5s
+          static_configs:
+            - targets: ['els-hub:5000']
+          metrics_path: '/metrics'
+          scheme: 'http'
+        - job_name: 'featbit-web-service'
+          scrape_interval: 5s
+          static_configs:
+            - targets: ['els-web:5000']
+          metrics_path: '/metrics'
+          scheme: 'http'
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Add FeatBit-specific attributes
+  resource:
+    attributes:
+      - key: service.namespace
+        value: featbit
+        action: upsert
+      - key: deployment.environment
+        value: development
+        action: upsert
+
+  # Filter and process FeatBit-specific telemetry
+  attributes:
+    actions:
+      - key: featbit.component
+        action: upsert
+        from_attribute: service.name
+      - key: http.user_agent
+        action: delete  # Remove sensitive info if needed
+
+  # Memory limiter to prevent OOM
+  # memory_limiter:
+  #   limit_mib: 128
+  #   spike_limit_mib: 32
+  #   check_interval: 1s
+
+  # Processor for filtering metrics
+  filter/metrics:
+    metrics:
+      include:
+        match_type: regexp
+        metric_names:
+          - "^websocket\\..*"
+          - "^http\\..*"
+          - "^process\\..*"
+          - "^dotnet\\..*"
+          - "^aspnetcore\\..*"
+          - "^FeatBit\\..*"
+
+exporters:
+  # Forward to your main OTEL collector
+  otlp/main:
+    endpoint: otel:4317  # Your existing otel container
+    tls:
+      insecure: true
+    sending_queue:
+      num_consumers: 4
+      queue_size: 100
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Debug exporter for detailed logging
+  debug:
+    verbosity: detailed
+    sampling_initial: 2
+    sampling_thereafter: 50
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource, attributes, batch]
+      exporters: [otlp/main]
+    
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [resource, attributes, filter/metrics, batch]
+      exporters: [otlp/main]
+    
+    logs:
+      receivers: [otlp]
+      processors: [resource, attributes, batch]
+      exporters: [otlp/main]
+
+  telemetry:
+    logs:
+      level: "debug"
+      development: true
+      encoding: "console"
+      disable_caller: false
+      disable_stacktrace: false
+    # metrics:
+    #   address: 0.0.0.0:8888
+    #   level: "detailed"

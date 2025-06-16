@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Infrastructure;
 using Microsoft.AspNetCore.Builder;
+using System.Diagnostics.Metrics;
+using System.Text;
 
 namespace Web.Setup;
 
@@ -14,6 +16,22 @@ public static class MiddlewaresRegister
         app.MapHealthChecks("health/readiness", new HealthCheckOptions
         {
             Predicate = registration => registration.Tags.Contains(HealthCheckBuilderExtensions.ReadinessTag)
+        });
+
+        // Add metrics endpoint for Prometheus scraping
+        app.MapGet("/metrics", async context =>
+        {
+            var meterFactory = context.RequestServices.GetRequiredService<IMeterFactory>();
+            var response = new StringBuilder();
+            
+            // For now, return a simple response indicating metrics are available
+            // The actual metrics will be collected by OTEL auto-instrumentation
+            response.AppendLine("# HELP featbit_web_metrics_available FeatBit Web metrics endpoint");
+            response.AppendLine("# TYPE featbit_web_metrics_available gauge");
+            response.AppendLine("featbit_web_metrics_available 1");
+            
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            await context.Response.WriteAsync(response.ToString());
         });
 
         // enable swagger in dev mode
