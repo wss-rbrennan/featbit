@@ -42,7 +42,7 @@ public static class MiddlewaresRegister
         }
 
         // enable backplane
-        app.UseBackplane();
+       
 
         // enable cors
         app.UseCors();

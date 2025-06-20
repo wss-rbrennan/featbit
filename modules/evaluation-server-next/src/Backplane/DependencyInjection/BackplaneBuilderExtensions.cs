@@ -1,89 +1,103 @@
 ﻿using Application.Services;
 using Application.Validation;
 using Backplane.Consumers;
+using Backplane.Messages;
+using Confluent.Kafka;
+using Domain;
 using Domain.Messages;
 using Infrastructure;
 using Infrastructure.BackplaneMesssages;
+using Infrastructure.MQ;
+using Infrastructure.MQ.Kafka;
+using Infrastructure.MQ.Postgres;
 using Infrastructure.MQ.Redis;
 using Infrastructure.Providers;
 using Infrastructure.Providers.Redis;
+using Infrastructure.Scaling.Handlers;
 using Infrastructure.Scaling.Service;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Internal;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Internal;
-using Domain;
-using Infrastructure.Scaling.Handlers;
-using Backplane.Messages;
 
 namespace Backplane.DependencyInjection
 {
     public static class BackplaneBuilderExtensions
     {
-        public static IBackplaneBuilder UseBackplane(this IBackplaneBuilder builder, IConfiguration config)
+        public static IBackplaneBuilder UseMq(this IBackplaneBuilder builder, IConfiguration configuration)
         {
-
             var services = builder.Services;
 
-            var backplaneProvider = config.GetBackplaneProvider();
-            if (backplaneProvider != BackplaneProvider.None)
+            var mqProvider = configuration.GetMqProvider();
+            if (mqProvider != MqProvider.None)
             {
                 AddConsumers();
             }
 
-            switch(backplaneProvider)
+            switch (mqProvider)
             {
-                case BackplaneProvider.None:
+                case MqProvider.None:
                     AddNone();
                     break;
-                case BackplaneProvider.Redis:
-                    AddRedis(config);
+                case MqProvider.Redis:
+                    AddRedis();
+                    break;
+                case MqProvider.Kafka:
+                    AddKafka();
+                    break;
+                case MqProvider.Postgres:
+                    AddPostgres();
                     break;
             }
-
-            // system clock
-            services.AddSingleton<ISystemClock, SystemClock>();
-
-            // request validator
-            services.AddSingleton<IRequestValidator, RequestValidator>();
-
-            services
-            .AddEvaluator();
-
-            services
-            .AddSingleton<IChannelProducer, Infrastructure.Providers.Redis.RedisChannelProducer>();
-            // message handlers
-            services
-                .AddSingleton<IMessageHandler, DataSyncMessageHandler>()
-                .AddSingleton<Infrastructure.Channels.IChannelPublisher, Infrastructure.Providers.Redis.RedisChannelPublisher>();
 
             return builder;
 
             void AddConsumers()
             {
-                // Add message correlation services
-                services.AddSingleton<IServiceIdentityProvider, ServiceIdentityProvider>();
-                services.AddSingleton<IMessageFactory, MessageFactory>();
-
-                services.AddSingleton<IDataSyncService, DataSyncService>();
+                services
+                    .AddSingleton<IMessageConsumer, FeatureFlagChangeMessageConsumer>()
+                    .AddSingleton<IMessageConsumer, SegmentChangeMessageConsumer>();
             }
 
             void AddNone()
             {
-                builder.Services.AddSingleton<IChannelProducer, NoneChannelProducer>();
+                builder.Services.AddSingleton<IMessageProducer, NoneMessageProducer>();
             }
 
-            void AddRedis(IConfiguration config)
+            void AddRedis()
             {
-                services.AddSingleton<IChannelProducer, RedisChannelProducer>();
+
                 services.AddSingleton<IMessageProducer, RedisMessageProducer>();
-                services.AddHostedService<RedisChannelConsumer>();
+                services.AddHostedService<RedisMessageConsumer>();
             }
 
+            void AddKafka()
+            {
+                var producerConfigDictionary = new Dictionary<string, string>();
+                configuration.GetSection("Kafka:Producer").Bind(producerConfigDictionary);
+                var producerConfig = new ProducerConfig(producerConfigDictionary);
+                services.AddSingleton(producerConfig);
+
+                var consumerConfigDictionary = new Dictionary<string, string>();
+                configuration.GetSection("Kafka:Consumer").Bind(consumerConfigDictionary);
+                var consumerConfig = new ConsumerConfig(consumerConfigDictionary);
+                services.AddSingleton(consumerConfig);
+
+                services.AddSingleton<IMessageProducer, KafkaMessageProducer>();
+                services.AddHostedService<KafkaMessageConsumer>();
+            }
+
+            void AddPostgres()
+            {
+                services.TryAddPostgres(configuration);
+
+                services.AddSingleton<IMessageProducer, PostgresMessageProducer>();
+                services.AddHostedService<PostgresMessageConsumer>();
+            }
         }
     }
 }

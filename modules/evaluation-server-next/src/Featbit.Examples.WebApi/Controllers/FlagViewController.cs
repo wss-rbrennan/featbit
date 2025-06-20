@@ -18,14 +18,15 @@ namespace Featbit.Examples.WebApi.Controllers
         }
 
         [HttpGet()]
-        public async Task<IActionResult> GetFlagValueAsync(string userId = "test-user")
+        public async Task<IActionResult> GetFlagValueAsync(string userId = "test-web-user")
         {
 
             try
             {
                 var flagKey = new List<string>()
                 {
-                    "test",
+                    "test-flag1",
+                    "demo-flag"
                 };
 
                 var user = FbUser.Builder(Guid.NewGuid().ToString()).Name(userId).Build();

@@ -16,6 +16,7 @@ using Infrastructure.BackplaneMesssages;
 using Backplane.Messages;
 using Infrastructure.Scaling.Handlers;
 using Infrastructure.Scaling.Service;
+using Application.Validation;
 
 namespace Api.Setup;
 
@@ -57,24 +58,32 @@ public static class ServicesRegister
             .AddDataStore()
             .UseStore(configuration);
 
+        
+
         // Add backplane services
-        services
-            .AddRelayProxySupport(configuration, options =>
+        services.AddBackplane(configuration, options =>
             {
                 options.SupportedTypes = supportedTypes;
-            }).UseBackplane(configuration);
+            })
+            .UseMq(configuration);
+        //services
+        //    .AddRelayProxySupport(configuration, options =>
+        //    {
+        //        options.SupportedTypes = supportedTypes;
+        //    }).UseBackplane(configuration);
 
         services.AddSingleton<IChannelPublisher, RedisChannelPublisher>();
-        services.AddSingleton<IDataSyncService, DataSyncService>();
+        services.AddSingleton<IRequestValidator, RequestValidator>();
+        //services.AddSingleton<IDataSyncService, DataSyncService>();
 
 
-        services
-            .AddSingleton<IMessageConsumer, FeatureFlagChangeMessageConsumer>()
-            .AddSingleton<IMessageConsumer, SegmentChangeMessageConsumer>();
+        //services
+        //    .AddSingleton<IMessageConsumer, FeatureFlagChangeMessageConsumer>()
+        //    .AddSingleton<IMessageConsumer, SegmentChangeMessageConsumer>();
 
-        services
-            .AddHostedService<RedisMessageConsumer>();
-        
+        //services
+        //    .AddHostedService<RedisMessageConsumer>();
+
         // Add application shutdown monitoring
         services.AddApplicationShutdownMonitoring();
         
