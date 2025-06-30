@@ -79,8 +79,8 @@ public static class ServicesRegister
         services
             .AddHostedService<RedisMessageConsumer>();
 
-        // Add application shutdown monitoring
-        services.AddApplicationShutdownMonitoring();
+        // Add application lifecycle monitoring
+        services.AddApplicationLifecycleMonitoring();
 
         return builder;
     }

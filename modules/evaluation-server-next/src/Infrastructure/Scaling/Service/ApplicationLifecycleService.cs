@@ -8,17 +8,17 @@ namespace Infrastructure.Scaling.Service
     /// <summary>
     /// Service responsible for capturing application lifecycle events and critical shutdown scenarios
     /// </summary>
-    public partial class ApplicationShutdownService : IHostedService, IDisposable
+    public partial class ApplicationLifecycleService : IHostedService, IDisposable
     {
         private readonly IHostApplicationLifetime _applicationLifetime;
-        private readonly ILogger<ApplicationShutdownService> _logger;
+        private readonly ILogger<ApplicationLifecycleService> _logger;
         private readonly IApplicationLifecycleMetrics _lifecycleMetrics;
         private readonly DateTime _startTime;
         private readonly int _processId;
 
-        public ApplicationShutdownService(
+        public ApplicationLifecycleService(
             IHostApplicationLifetime applicationLifetime,
-            ILogger<ApplicationShutdownService> logger,
+            ILogger<ApplicationLifecycleService> logger,
             IApplicationLifecycleMetrics lifecycleMetrics)
         {
             _applicationLifetime = applicationLifetime;
@@ -40,13 +40,13 @@ namespace Infrastructure.Scaling.Service
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
             Console.CancelKeyPress += OnCancelKeyPress;
 
-            Log.ShutdownServiceStarted(_logger);
+            Log.LifecycleServiceStarted(_logger);
             return Task.CompletedTask;
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
         {
-            Log.ShutdownServiceStopped(_logger);
+            Log.LifecycleServiceStopped(_logger);
             return Task.CompletedTask;
         }
 
