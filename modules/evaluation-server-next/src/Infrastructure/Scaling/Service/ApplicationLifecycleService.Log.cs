@@ -2,17 +2,17 @@ using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Scaling.Service
 {
-    public partial class ApplicationShutdownService
+    public partial class ApplicationLifecycleService
     {
         public static partial class Log
         {
-            [LoggerMessage(1, LogLevel.Information, "Application shutdown monitoring service started",
-                EventName = "ShutdownServiceStarted")]
-            public static partial void ShutdownServiceStarted(ILogger logger);
+            [LoggerMessage(1, LogLevel.Information, "Application lifecycle monitoring service started",
+                EventName = "LifecycleServiceStarted")]
+            public static partial void LifecycleServiceStarted(ILogger logger);
 
-            [LoggerMessage(2, LogLevel.Information, "Application shutdown monitoring service stopped",
-                EventName = "ShutdownServiceStopped")]
-            public static partial void ShutdownServiceStopped(ILogger logger);
+            [LoggerMessage(2, LogLevel.Information, "Application lifecycle monitoring service stopped",
+                EventName = "LifecycleServiceStopped")]
+            public static partial void LifecycleServiceStopped(ILogger logger);
 
             [LoggerMessage(3, LogLevel.Information, "Application started successfully - StartupTime: {StartupTime}ms, ProcessId: {ProcessId}",
                 EventName = "ApplicationStarted")]
