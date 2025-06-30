@@ -8,7 +8,6 @@ using System.Diagnostics.Metrics;
 using DataStore.Caches;
 using DataStore.DependencyInjection;
 using System.Runtime;
-using Infrastructure.Scaling.Service;
 
 namespace Edge.Setup;
 
@@ -59,8 +58,8 @@ public static class ServicesRegister
 
         services.AddSingleton<IChannelPublisher, RedisChannelPublisher>();
 
-        // Performance monitoring
-        services.AddHostedService<PerformanceMonitoringService>();
+        // Note: Performance monitoring is handled by built-in .NET runtime metrics via OpenTelemetry
+        // See docs/monitoring-and-alerting.md for dashboard and alerting recommendations
 
         // streaming services
         services
