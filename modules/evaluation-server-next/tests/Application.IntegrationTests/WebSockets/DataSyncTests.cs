@@ -1,7 +1,7 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using Application.Connections;
+using Infrastructure.Connections;
 
 namespace Application.IntegrationTests.WebSockets;
 
