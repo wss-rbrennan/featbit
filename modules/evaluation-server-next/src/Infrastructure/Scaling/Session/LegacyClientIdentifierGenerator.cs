@@ -143,22 +143,45 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
     {
         try
         {
-            var rawQuery = connectionContext.RawQuery;
-            if (string.IsNullOrEmpty(rawQuery)) return null;
-
-            var queryParams = HttpUtility.ParseQueryString(rawQuery);
             var customIdentifiers = new Dictionary<string, string>();
 
-            // Extract custom identification parameters
-            var identifierKeys = new[] { "instanceId", "serverId", "nodeId", "region", "datacenter", "version" };
-            
-            foreach (var key in identifierKeys)
+            // Extract custom identification parameters from query string
+            var rawQuery = connectionContext.RawQuery;
+            if (!string.IsNullOrEmpty(rawQuery))
             {
-                var value = queryParams[key];
-                if (!string.IsNullOrEmpty(value))
+                var queryParams = HttpUtility.ParseQueryString(rawQuery);
+                
+                // Standard custom identification parameters
+                var identifierKeys = new[] { "instanceId", "serverId", "nodeId", "region", "datacenter", "version" };
+                
+                foreach (var key in identifierKeys)
                 {
-                    customIdentifiers[key] = value;
+                    var value = queryParams[key];
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        customIdentifiers[key] = value;
+                    }
                 }
+
+                // Kubernetes/Container-specific parameters
+                var containerKeys = new[] { "podName", "podNamespace", "containerName", "replicaSet", "deployment" };
+                
+                foreach (var key in containerKeys)
+                {
+                    var value = queryParams[key];
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        customIdentifiers[key] = value;
+                    }
+                }
+            }
+
+            // Add connection-specific unique identifier as fallback
+            // This ensures uniqueness even when network context and custom params are identical
+            var connectionId = ExtractConnectionIdentifier(connectionContext);
+            if (!string.IsNullOrEmpty(connectionId))
+            {
+                customIdentifiers["connectionId"] = connectionId;
             }
 
             return customIdentifiers.Count > 0 ? customIdentifiers : null;
@@ -168,6 +191,32 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
             _logger.LogWarning(ex, "Error extracting custom identifiers from connection");
             return null;
         }
+    }
+
+    private string ExtractConnectionIdentifier(ConnectionContext connectionContext)
+    {
+        try
+        {
+            // Use connection-specific data to create a unique identifier
+            // This combines connection time + token hash to ensure uniqueness
+            var connectTime = connectionContext.ConnectAt;
+            var tokenHash = ComputeShortHash(connectionContext.Token ?? "");
+            
+            return $"{connectTime}-{tokenHash}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error extracting connection identifier, using fallback");
+            // Fallback to a simple timestamp-based identifier
+            return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+        }
+    }
+
+    private string ComputeShortHash(string input)
+    {
+        var bytes = Encoding.UTF8.GetBytes(input);
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToBase64String(hash)[..6].Replace("+", "-").Replace("/", "_");
     }
 
     public bool IsLegacyGeneratedId(string clientId)

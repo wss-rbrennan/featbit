@@ -347,7 +347,7 @@ public class LegacyClientIdentifierGeneratorTests
     }
 
     [Fact]
-    public void ExtractCustomIdentifiers_WithNoQueryParameters_ReturnsNull()
+    public void ExtractCustomIdentifiers_WithNoQueryParameters_ReturnsConnectionId()
     {
         // Arrange
         var user = new EndUser { KeyId = "user-123", Name = "Test User" };
@@ -358,7 +358,109 @@ public class LegacyClientIdentifierGeneratorTests
         var result = _generator.ExtractCustomIdentifiers(connectionContext);
 
         // Assert
-        Assert.Null(result);
+        Assert.NotNull(result);
+        Assert.True(result.ContainsKey("connectionId"));
+        Assert.NotEmpty(result["connectionId"]);
+        
+        // Connection ID should follow expected format: timestamp-hash
+        var connectionId = result["connectionId"];
+        Assert.Matches(@"^\d+-[A-Za-z0-9_-]+$", connectionId); // Format: timestamp-hash
+    }
+
+    [Fact]
+    public void ExtractCustomIdentifiers_WithKubernetesParameters_ReturnsKubernetesIdentifiers()
+    {
+        // Arrange
+        var user = new EndUser { KeyId = "user-123", Name = "Test User" };
+        var connection = CreateTestConnection("server", user);
+        var connectionContext = CreateTestConnectionContextWithQuery(connection, 
+            "podName=api-server-pod-123&podNamespace=production&deployment=api-server&replicaSet=api-server-rs");
+
+        // Act
+        var result = _generator.ExtractCustomIdentifiers(connectionContext);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("api-server-pod-123", result["podName"]);
+        Assert.Equal("production", result["podNamespace"]);
+        Assert.Equal("api-server", result["deployment"]);
+        Assert.Equal("api-server-rs", result["replicaSet"]);
+        
+        // Should also include connection-specific fallback
+        Assert.True(result.ContainsKey("connectionId"));
+        Assert.NotEmpty(result["connectionId"]);
+    }
+
+    [Fact]
+    public void GenerateClientId_SameNetworkDifferentConnections_ProducesUniqueIds()
+    {
+        // Arrange - simulates multiple pods in same K8s cluster with same network context
+        var secret = CreateTestSecret("server");
+        var networkContext = new LegacyClientIdentifierGenerator.NetworkContext
+        {
+            IpAddress = "10.244.0.100", // Same cluster IP
+            Host = "api-server-service"  // Same service name
+        };
+
+        // Create two different connection contexts with guaranteed different connection times
+        var connection1 = CreateTestConnection("server", null);
+        var connection2 = CreateTestConnection("server", null);
+        var context1 = CreateTestConnectionContextWithTime(connection1, "", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        var context2 = CreateTestConnectionContextWithTime(connection2, "", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 1000);
+
+        // Act
+        var customIds1 = _generator.ExtractCustomIdentifiers(context1);
+        var customIds2 = _generator.ExtractCustomIdentifiers(context2);
+        
+        var clientId1 = _generator.GenerateClientId(secret, null, "server", networkContext, customIds1);
+        var clientId2 = _generator.GenerateClientId(secret, null, "server", networkContext, customIds2);
+
+        // Assert
+        Assert.NotEqual(clientId1, clientId2);
+        Assert.Contains("legacy:server:", clientId1);
+        Assert.Contains("legacy:server:", clientId2);
+        
+        // Verify both have connection IDs but they're different
+        Assert.NotNull(customIds1);
+        Assert.NotNull(customIds2);
+        Assert.True(customIds1.ContainsKey("connectionId"));
+        Assert.True(customIds2.ContainsKey("connectionId"));
+        Assert.NotEqual(customIds1["connectionId"], customIds2["connectionId"]);
+    }
+
+    [Fact]
+    public void GenerateClientId_KubernetesScenario_ProducesUniqueIdsForDifferentPods()
+    {
+        // Arrange - multiple pods with same project/env but different pod names
+        var secret = CreateTestSecret("server");
+        var networkContext = new LegacyClientIdentifierGenerator.NetworkContext
+        {
+            IpAddress = "10.244.0.100", // Same cluster IP
+            Host = "api-server-service"  // Same service name
+        };
+
+        var customIds1 = new Dictionary<string, string>
+        {
+            ["podName"] = "api-server-pod-abc123",
+            ["podNamespace"] = "production",
+            ["deployment"] = "api-server"
+        };
+        
+        var customIds2 = new Dictionary<string, string>
+        {
+            ["podName"] = "api-server-pod-def456", // Different pod name
+            ["podNamespace"] = "production",
+            ["deployment"] = "api-server"
+        };
+
+        // Act
+        var clientId1 = _generator.GenerateClientId(secret, null, "server", networkContext, customIds1);
+        var clientId2 = _generator.GenerateClientId(secret, null, "server", networkContext, customIds2);
+
+        // Assert
+        Assert.NotEqual(clientId1, clientId2);
+        Assert.Contains("legacy:server:", clientId1);
+        Assert.Contains("legacy:server:", clientId2);
     }
 
     private Connection CreateTestConnection(string type, EndUser? user)
@@ -396,15 +498,22 @@ public class LegacyClientIdentifierGeneratorTests
         return new TestConnectionContext(connection, query);
     }
 
+    private ConnectionContext CreateTestConnectionContextWithTime(Connection connection, string? query, long connectAt)
+    {
+        return new TestConnectionContext(connection, query, connectAt);
+    }
+
     private class TestConnectionContext : ConnectionContext
     {
         private readonly Connection _connection;
         private readonly string? _rawQuery;
+        private readonly long _connectAt;
 
-        public TestConnectionContext(Connection connection, string? rawQuery = null)
+        public TestConnectionContext(Connection connection, string? rawQuery = null, long? connectAt = null)
         {
             _connection = connection;
             _rawQuery = rawQuery;
+            _connectAt = connectAt ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             Connection = connection;
             Client = new Client("192.168.1.100", "test-host");
         }
@@ -425,7 +534,7 @@ public class LegacyClientIdentifierGeneratorTests
 
         public override Connection[] MappedRpConnections { get; protected set; } = Array.Empty<Connection>();
 
-        public override long ConnectAt => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        public override long ConnectAt => _connectAt;
 
         public override long ClosedAt { get; protected set; }
     }
