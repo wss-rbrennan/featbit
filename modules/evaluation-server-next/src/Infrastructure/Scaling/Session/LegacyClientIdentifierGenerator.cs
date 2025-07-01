@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Web;
 using Domain.EndUsers;
 using Domain.Shared;
 using Infrastructure.Connections;
@@ -45,7 +46,11 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
             var user = ExtractUser(connectionContext);
             var connectionType = connectionContext.Type;
             
-            return GenerateClientId(secret, user, connectionType);
+            // Extract additional network and query context for better differentiation
+            var networkContext = ExtractNetworkContext(connectionContext);
+            var customIdentifiers = ExtractCustomIdentifiers(connectionContext);
+            
+            return GenerateClientId(secret, user, connectionType, networkContext, customIdentifiers);
         }
         catch (Exception ex)
         {
@@ -56,15 +61,21 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
 
     public string GenerateClientId(Secret secret, EndUser? user = null, string? connectionType = null)
     {
+        return GenerateClientId(secret, user, connectionType, null, null);
+    }
+
+    public string GenerateClientId(Secret secret, EndUser? user = null, string? connectionType = null, 
+        NetworkContext? networkContext = null, Dictionary<string, string>? customIdentifiers = null)
+    {
         try
         {
             // Build identifier components based on connection type
             var identifierData = connectionType?.ToLowerInvariant() switch
             {
-                "client" => BuildClientSideIdentifier(secret, user),
-                "server" => BuildServerSideIdentifier(secret),
-                "relay-proxy" => BuildRelayProxyIdentifier(secret),
-                _ => BuildGenericIdentifier(secret, user, connectionType)
+                "client" => BuildClientSideIdentifier(secret, user, networkContext, customIdentifiers),
+                "server" => BuildServerSideIdentifier(secret, networkContext, customIdentifiers),
+                "relay-proxy" => BuildRelayProxyIdentifier(secret, networkContext, customIdentifiers),
+                _ => BuildGenericIdentifier(secret, user, connectionType, networkContext, customIdentifiers)
             };
 
             // Create deterministic hash
@@ -108,6 +119,57 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
         }
     }
 
+    public NetworkContext? ExtractNetworkContext(ConnectionContext connectionContext)
+    {
+        try
+        {
+            var client = connectionContext.Client;
+            if (client == null) return null;
+
+            return new NetworkContext
+            {
+                IpAddress = client.IpAddress,
+                Host = client.Host
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error extracting network context from connection");
+            return null;
+        }
+    }
+
+    public Dictionary<string, string>? ExtractCustomIdentifiers(ConnectionContext connectionContext)
+    {
+        try
+        {
+            var rawQuery = connectionContext.RawQuery;
+            if (string.IsNullOrEmpty(rawQuery)) return null;
+
+            var queryParams = HttpUtility.ParseQueryString(rawQuery);
+            var customIdentifiers = new Dictionary<string, string>();
+
+            // Extract custom identification parameters
+            var identifierKeys = new[] { "instanceId", "serverId", "nodeId", "region", "datacenter", "version" };
+            
+            foreach (var key in identifierKeys)
+            {
+                var value = queryParams[key];
+                if (!string.IsNullOrEmpty(value))
+                {
+                    customIdentifiers[key] = value;
+                }
+            }
+
+            return customIdentifiers.Count > 0 ? customIdentifiers : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error extracting custom identifiers from connection");
+            return null;
+        }
+    }
+
     public bool IsLegacyGeneratedId(string clientId)
     {
         return !string.IsNullOrEmpty(clientId) && clientId.StartsWith(LEGACY_PREFIX, StringComparison.OrdinalIgnoreCase);
@@ -115,7 +177,7 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
 
     #region Private Methods
 
-    private IdentifierData BuildClientSideIdentifier(Secret secret, EndUser? user)
+    private IdentifierData BuildClientSideIdentifier(Secret secret, EndUser? user, NetworkContext? networkContext, Dictionary<string, string>? customIdentifiers)
     {
         return new IdentifierData
         {
@@ -128,11 +190,14 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
             // Include a subset of user properties for uniqueness (but not all to avoid instability)
             UserPropertiesHash = user?.CustomizedProperties?.Length > 0 
                 ? ComputePropertiesHash(user.CustomizedProperties) 
-                : null
+                : null,
+            IpAddress = networkContext?.IpAddress,
+            Host = networkContext?.Host,
+            CustomIdentifiers = customIdentifiers
         };
     }
 
-    private IdentifierData BuildServerSideIdentifier(Secret secret)
+    private IdentifierData BuildServerSideIdentifier(Secret secret, NetworkContext? networkContext, Dictionary<string, string>? customIdentifiers)
     {
         return new IdentifierData
         {
@@ -142,11 +207,14 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
             EnvKey = secret.EnvKey,
             // Server connections are identified by their credentials alone
             UserId = null,
-            UserName = null
+            UserName = null,
+            IpAddress = networkContext?.IpAddress,
+            Host = networkContext?.Host,
+            CustomIdentifiers = customIdentifiers
         };
     }
 
-    private IdentifierData BuildRelayProxyIdentifier(Secret secret)
+    private IdentifierData BuildRelayProxyIdentifier(Secret secret, NetworkContext? networkContext, Dictionary<string, string>? customIdentifiers)
     {
         return new IdentifierData
         {
@@ -155,11 +223,14 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
             ProjectKey = secret.ProjectKey,
             EnvKey = secret.EnvKey,
             UserId = null,
-            UserName = null
+            UserName = null,
+            IpAddress = networkContext?.IpAddress,
+            Host = networkContext?.Host,
+            CustomIdentifiers = customIdentifiers
         };
     }
 
-    private IdentifierData BuildGenericIdentifier(Secret secret, EndUser? user, string? connectionType)
+    private IdentifierData BuildGenericIdentifier(Secret secret, EndUser? user, string? connectionType, NetworkContext? networkContext, Dictionary<string, string>? customIdentifiers)
     {
         return new IdentifierData
         {
@@ -168,7 +239,10 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
             ProjectKey = secret.ProjectKey,
             EnvKey = secret.EnvKey,
             UserId = user?.KeyId,
-            UserName = user?.Name
+            UserName = user?.Name,
+            IpAddress = networkContext?.IpAddress,
+            Host = networkContext?.Host,
+            CustomIdentifiers = customIdentifiers
         };
     }
 
@@ -211,6 +285,12 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
 
     #region Data Models
 
+    public class NetworkContext
+    {
+        public string? IpAddress { get; set; }
+        public string? Host { get; set; }
+    }
+
     private class IdentifierData
     {
         public string Type { get; set; } = string.Empty;
@@ -220,6 +300,9 @@ public class LegacyClientIdentifierGenerator : ILegacyClientIdentifierGenerator
         public string? UserId { get; set; }
         public string? UserName { get; set; }
         public string? UserPropertiesHash { get; set; }
+        public string? IpAddress { get; set; }
+        public string? Host { get; set; }
+        public Dictionary<string, string>? CustomIdentifiers { get; set; }
     }
 
     #endregion

@@ -233,16 +233,138 @@ public class LegacyClientIdentifierGeneratorTests
         Assert.Throws<InvalidOperationException>(() => _generator.GenerateClientId(mockContext.Object));
     }
 
+    [Fact]
+    public void GenerateClientId_WithNetworkContext_CreatesUniqueIds()
+    {
+        // Arrange
+        var secret = CreateTestSecret("server");
+        var networkContext1 = new LegacyClientIdentifierGenerator.NetworkContext
+        {
+            IpAddress = "192.168.1.10",
+            Host = "server1.example.com"
+        };
+        var networkContext2 = new LegacyClientIdentifierGenerator.NetworkContext
+        {
+            IpAddress = "192.168.1.11",
+            Host = "server2.example.com"
+        };
+
+        // Act
+        var clientId1 = _generator.GenerateClientId(secret, null, "server", networkContext1, null);
+        var clientId2 = _generator.GenerateClientId(secret, null, "server", networkContext2, null);
+
+        // Assert
+        Assert.NotEqual(clientId1, clientId2);
+        Assert.Contains("legacy:server:", clientId1);
+        Assert.Contains("legacy:server:", clientId2);
+    }
+
+    [Fact]
+    public void GenerateClientId_WithCustomIdentifiers_CreatesUniqueIds()
+    {
+        // Arrange
+        var secret = CreateTestSecret("server");
+        var customIds1 = new Dictionary<string, string>
+        {
+            ["instanceId"] = "instance-1",
+            ["region"] = "us-east-1"
+        };
+        var customIds2 = new Dictionary<string, string>
+        {
+            ["instanceId"] = "instance-2",
+            ["region"] = "us-west-2"
+        };
+
+        // Act
+        var clientId1 = _generator.GenerateClientId(secret, null, "server", null, customIds1);
+        var clientId2 = _generator.GenerateClientId(secret, null, "server", null, customIds2);
+
+        // Assert
+        Assert.NotEqual(clientId1, clientId2);
+        Assert.Contains("legacy:server:", clientId1);
+        Assert.Contains("legacy:server:", clientId2);
+    }
+
+    [Fact]
+    public void GenerateClientId_WithNetworkAndCustomIdentifiers_CreatesUniqueIds()
+    {
+        // Arrange
+        var secret = CreateTestSecret("relay-proxy");
+        var networkContext = new LegacyClientIdentifierGenerator.NetworkContext
+        {
+            IpAddress = "10.0.0.5",
+            Host = "relay.example.com"
+        };
+        var customIds = new Dictionary<string, string>
+        {
+            ["instanceId"] = "relay-instance-1",
+            ["datacenter"] = "dc1"
+        };
+
+        // Act
+        var clientId1 = _generator.GenerateClientId(secret, null, "relay-proxy", networkContext, customIds);
+        var clientId2 = _generator.GenerateClientId(secret, null, "relay-proxy", null, null);
+
+        // Assert
+        Assert.NotEqual(clientId1, clientId2);
+        Assert.Contains("legacy:relay-proxy:", clientId1);
+        Assert.Contains("legacy:relay-proxy:", clientId2);
+    }
+
+    [Fact]
+    public void ExtractNetworkContext_WithValidClient_ReturnsNetworkContext()
+    {
+        // Arrange
+        var user = new EndUser { KeyId = "user-123", Name = "Test User" };
+        var connection = CreateTestConnection("server", user);
+        var connectionContext = CreateTestConnectionContext(connection);
+
+        // Act
+        var result = _generator.ExtractNetworkContext(connectionContext);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("192.168.1.100", result.IpAddress);
+        Assert.Equal("test-host", result.Host);
+    }
+
+    [Fact]
+    public void ExtractCustomIdentifiers_WithQueryParameters_ReturnsCustomIdentifiers()
+    {
+        // Arrange
+        var user = new EndUser { KeyId = "user-123", Name = "Test User" };
+        var connection = CreateTestConnection("server", user);
+        var connectionContext = CreateTestConnectionContextWithQuery(connection, "instanceId=server-1&region=us-east-1&datacenter=dc1");
+
+        // Act
+        var result = _generator.ExtractCustomIdentifiers(connectionContext);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("server-1", result["instanceId"]);
+        Assert.Equal("us-east-1", result["region"]);
+        Assert.Equal("dc1", result["datacenter"]);
+    }
+
+    [Fact]
+    public void ExtractCustomIdentifiers_WithNoQueryParameters_ReturnsNull()
+    {
+        // Arrange
+        var user = new EndUser { KeyId = "user-123", Name = "Test User" };
+        var connection = CreateTestConnection("server", user);
+        var connectionContext = CreateTestConnectionContextWithQuery(connection, null);
+
+        // Act
+        var result = _generator.ExtractCustomIdentifiers(connectionContext);
+
+        // Assert
+        Assert.Null(result);
+    }
+
     private Connection CreateTestConnection(string type, EndUser? user)
     {
         var mockWebSocket = new Mock<WebSocket>();
-        var secret = new Secret
-        {
-            Type = type,
-            EnvId = Guid.NewGuid(),
-            ProjectKey = "test-project",
-            EnvKey = "test-env"
-        };
+        var secret = CreateTestSecret(type);
         
         var connection = new Connection(mockWebSocket.Object, secret);
         if (user != null)
@@ -253,30 +375,58 @@ public class LegacyClientIdentifierGeneratorTests
         return connection;
     }
 
+    private Secret CreateTestSecret(string type)
+    {
+        return new Secret
+        {
+            Type = type,
+            EnvId = Guid.NewGuid(),
+            ProjectKey = "test-project",
+            EnvKey = "test-env"
+        };
+    }
+
     private ConnectionContext CreateTestConnectionContext(Connection connection)
     {
         return new TestConnectionContext(connection);
     }
 
+    private ConnectionContext CreateTestConnectionContextWithQuery(Connection connection, string? query)
+    {
+        return new TestConnectionContext(connection, query);
+    }
+
     private class TestConnectionContext : ConnectionContext
     {
         private readonly Connection _connection;
+        private readonly string? _rawQuery;
 
-        public TestConnectionContext(Connection connection)
+        public TestConnectionContext(Connection connection, string? rawQuery = null)
         {
             _connection = connection;
+            _rawQuery = rawQuery;
             Connection = connection;
+            Client = new Client("192.168.1.100", "test-host");
         }
 
-        public override string? RawQuery => null;
+        public override string? RawQuery => _rawQuery;
+
         public override WebSocket WebSocket => _connection.WebSocket;
-        public override string Type => _connection.Type;
+
+        public override string Type => _connection.Secret.Type;
+
         public override string Version => "1.0";
+
         public override string Token => $"{_connection.Secret.Type}-{_connection.Secret.ProjectKey}-{_connection.Secret.EnvKey}";
+
         public override Client? Client { get; protected set; }
+
         public override Connection Connection { get; protected set; }
+
         public override Connection[] MappedRpConnections { get; protected set; } = Array.Empty<Connection>();
+
         public override long ConnectAt => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
         public override long ClosedAt { get; protected set; }
     }
 } 
