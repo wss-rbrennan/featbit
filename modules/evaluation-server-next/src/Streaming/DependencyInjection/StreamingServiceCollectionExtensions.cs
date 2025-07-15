@@ -69,7 +69,8 @@ public static class StreamingServiceCollectionExtensions
         // message handlers
         services
             .AddSingleton<MessageDispatcher>()
-            .AddTransient<IMessageHandler, PingMessageHandler>();
+            .AddTransient<IMessageHandler, PingMessageHandler>()
+            .AddTransient<IMessageHandler, EchoMessageHandler>();
 
         return new StreamingBuilder(services);
     }
