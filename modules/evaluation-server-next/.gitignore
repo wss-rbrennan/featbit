@@ -149,6 +149,10 @@ coverage*.json
 coverage*.xml
 coverage*.info
 
+# Code Coverage Reports & Artifacts
+coverage/
+TestResults/
+
 # Visual Studio code coverage results
 *.coverage
 *.coveragexml
@@ -457,3 +461,9 @@ $RECYCLE.BIN/
 ## Verified files
 ## 
 *.received.*
+
+
+##
+## Coverage
+##
+coverage-report/

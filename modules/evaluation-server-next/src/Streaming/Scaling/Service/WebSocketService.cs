@@ -877,6 +877,11 @@ namespace Streaming.Scaling.Service
                     await HandlePingMessage(ctx);
                     break;
 
+                case "echo":
+                    _logger.LogTrace("Handling echo message from client {Id}", id);
+                    await HandleEchoMessage(ctx, message);
+                    break;
+
                 default:
                     _logger.LogWarning("Unknown message type: {MessageType}", messageType.ToString());
                     WebSocketServiceLogger.UnknownMessageType(_logger, messageType.ToString());
@@ -951,6 +956,12 @@ namespace Streaming.Scaling.Service
             });
 
             await ctx.WebSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(messageJson)), WebSocketMessageType.Text, true, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task HandleEchoMessage(ConnectionContext ctx, string originalMessage)
+        {
+            // Echo back the exact same message that was received
+            await ctx.WebSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(originalMessage)), WebSocketMessageType.Text, true, CancellationToken.None).ConfigureAwait(false);
         }
 
         private void CleanupProcessedMessages(object? state)

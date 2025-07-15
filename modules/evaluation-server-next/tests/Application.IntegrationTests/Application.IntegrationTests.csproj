@@ -6,6 +6,16 @@
         <Nullable>enable</Nullable>
 
         <IsPackable>false</IsPackable>
+        
+        <!-- Code Coverage Configuration -->
+        <CollectCoverage>true</CollectCoverage>
+        <CoverletOutputFormat>opencover,lcov,json</CoverletOutputFormat>
+        <CoverletOutput>$(OutputPath)coverage/</CoverletOutput>
+        <Exclude>[*]*.Migrations.*,[*]*Tests*,[*]*Test*</Exclude>
+        <Include>[Application]*,[Domain]*,[Infrastructure]*,[Streaming]*,[DataStore]*</Include>
+        <!-- Remove strict thresholds for integration tests - focus on reporting -->
+        <!-- <ThresholdType>line,branch,method</ThresholdType> -->
+        <!-- <Threshold>30,25,30</Threshold> -->
     </PropertyGroup>
 
     <ItemGroup>
@@ -17,6 +27,20 @@
         <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        
+        <!-- Code Coverage Packages -->
+        <PackageReference Include="coverlet.collector" Version="6.0.2">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="coverlet.msbuild" Version="6.0.2">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="ReportGenerator" Version="5.4.1">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
         </PackageReference>
     </ItemGroup>
 
