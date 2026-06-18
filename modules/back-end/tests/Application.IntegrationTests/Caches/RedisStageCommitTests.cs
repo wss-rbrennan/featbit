@@ -2,7 +2,7 @@ using Domain.FeatureFlags;
 using Infrastructure.Caches.Redis;
 using StackExchange.Redis;
 
-namespace Application.UnitTests.Caches;
+namespace Application.IntegrationTests.Caches;
 
 /// <summary>
 /// Integration tests for the B1 Redis stage/commit storage feature.
