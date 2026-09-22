@@ -8,7 +8,7 @@ public class FeatureFlagConfiguration : IEntityTypeConfiguration<FeatureFlag>
 {
     public void Configure(EntityTypeBuilder<FeatureFlag> builder)
     {
-        builder.ToTable("FeatureFlags");
+        builder.ToTable("feature_flags");
 
         builder.HasIndex(x => new { x.EnvId, x.UpdatedAt });
 
