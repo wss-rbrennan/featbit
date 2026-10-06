@@ -1,8 +1,10 @@
 using Application.Caches;
+using Application.Bases.Exceptions;
 using Application.Experiments;
 using Application.FeatureFlags;
 using Domain.AuditLogs;
 using Domain.Segments;
+using Domain.SemanticPatch;
 using MediatR;
 
 namespace Infrastructure.AppService;
@@ -44,10 +46,19 @@ public class FeatureFlagAppService : IFeatureFlagAppService
         // apply flag draft
         var flag = await _flagService.GetAsync(draft.FlagId);
         var wasInsightsEnabled = flag.InsightsEnabled;
-        var dataChange = flag.ApplyDraft(draft);
+        DataChange dataChange;
+        try
+        {
+            dataChange = flag.ApplyDraft(draft);
+        }
+        catch (FlagInstructionConflictException)
+        {
+            throw new ConflictException(nameof(Domain.FeatureFlags.FeatureFlag), flag.Id);
+        }
 
         // rejected drafts stay pending: nothing below runs when the guard throws
         await _insightsGuard.EnsureCanDisableInsightsAsync(wasInsightsEnabled, flag);
+
         await _flagService.UpdateAsync(flag);
 
         // update draft status
