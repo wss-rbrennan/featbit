@@ -1,6 +1,5 @@
 using Application.Caches;
 using Application.Bases.Exceptions;
-using Application.Experiments;
 using Application.FeatureFlags;
 using Domain.AuditLogs;
 using Domain.Segments;
@@ -16,22 +15,19 @@ public class FeatureFlagAppService : IFeatureFlagAppService
     private readonly IAuditLogService _auditLogService;
     private readonly ICacheService _cacheService;
     private readonly IPublisher _publisher;
-    private readonly IFlagInsightsGuard _insightsGuard;
 
     public FeatureFlagAppService(
         IFeatureFlagService featureFlagService,
         IFlagDraftService flagDraftService,
         IAuditLogService auditLogService,
         ICacheService cacheService,
-        IPublisher publisher,
-        IFlagInsightsGuard insightsGuard)
+        IPublisher publisher)
     {
         _flagService = featureFlagService;
         _flagDraftService = flagDraftService;
         _auditLogService = auditLogService;
         _cacheService = cacheService;
         _publisher = publisher;
-        _insightsGuard = insightsGuard;
     }
 
     public async Task ApplyDraftAsync(Guid draftId, string operation, Guid operatorId)
@@ -45,7 +41,6 @@ public class FeatureFlagAppService : IFeatureFlagAppService
 
         // apply flag draft
         var flag = await _flagService.GetAsync(draft.FlagId);
-        var wasInsightsEnabled = flag.InsightsEnabled;
         DataChange dataChange;
         try
         {
@@ -55,9 +50,6 @@ public class FeatureFlagAppService : IFeatureFlagAppService
         {
             throw new ConflictException(nameof(Domain.FeatureFlags.FeatureFlag), flag.Id);
         }
-
-        // rejected drafts stay pending: nothing below runs when the guard throws
-        await _insightsGuard.EnsureCanDisableInsightsAsync(wasInsightsEnabled, flag);
 
         await _flagService.UpdateAsync(flag);
 

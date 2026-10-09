@@ -239,7 +239,9 @@ export const enFeatureFlags = {
       loadFailed: "Event triggers could not be loaded.",
     },
     insights: {
-      collectionDisabled: "Insight collection is disabled for this flag",
+      collectionDisabled: "Insight collection is turned off",
+      collectionDisabledDescription:
+        "You can still view previously collected data. To collect new evaluations, enable insights in settings.",
       openSettings: "Open settings",
       periods: {
         "30m": "Last 30 minutes",
@@ -285,10 +287,6 @@ export const enFeatureFlags = {
         tags: "Tags",
         insightsEnabled: "Insights enabled",
       },
-      insightsHelp:
-        "When disabled, nothing is recorded about this flag's evaluations, including end-user data. SDKs that support this setting stop sending insights, and the server discards insights from older SDKs. Cannot be disabled while an experiment is running.",
-      insightsBlockedByExperiments:
-        "Insights cannot be disabled while these experiments are running: {{names}}. Stop them first.",
       insightsValue: {
         enabled: "Enabled",
         disabled: "Disabled",
@@ -296,6 +294,19 @@ export const enFeatureFlags = {
       nameRequired: "Enter a feature flag name.",
       nameHelp: "A human-friendly name for this feature flag.",
       tagsHelp: "Use tags to organize and filter feature flags.",
+      insightCollection: "Insight collection",
+      insightCollectionHelp:
+        "Collect evaluation data for this flag to support insights and experiments.",
+      enableInsights: "Enable insights",
+      disableInsights: "Disable insights",
+      runningExperiments: "Running experiments",
+      runningExperimentsHelp:
+        "These experiments depend on this flag’s insight data. Stop them before disabling insights.",
+      noRunningExperiments:
+        "No running experiments are linked to this flag. You can enable or disable insight collection.",
+      experimentsLoadFailed: "Running experiments could not be loaded.",
+      insightsBlocked:
+        "Insights cannot be disabled while linked experiments require insight data. Stop them first.",
       lifecycle: "Lifecycle",
       archiveTitle: "Archive feature flag",
       archiveHelp:
@@ -798,7 +809,7 @@ export const zhFeatureFlags: typeof enFeatureFlags = {
       targeting: "定向",
       variations: "变体",
       triggers: "触发器",
-      insights: "洞察",
+      insights: "评估数据",
       settings: "设置",
       history: "历史",
     },
@@ -934,7 +945,9 @@ export const zhFeatureFlags: typeof enFeatureFlags = {
       loadFailed: "无法加载事件触发器。",
     },
     insights: {
-      collectionDisabled: "此开关已禁用洞察收集",
+      collectionDisabled: "评估数据收集已关闭",
+      collectionDisabledDescription:
+        "你仍可以查看此前采集的数据。如需采集新的评估数据，请在设置中启用评估数据收集。",
       openSettings: "打开设置",
       periods: {
         "30m": "最近 30 分钟",
@@ -978,12 +991,8 @@ export const zhFeatureFlags: typeof enFeatureFlags = {
         name: "名称",
         description: "描述",
         tags: "标签",
-        insightsEnabled: "启用洞察",
+        insightsEnabled: "启用评估数据收集",
       },
-      insightsHelp:
-        "禁用后，将不会记录此开关的任何评估信息，包括终端用户数据。支持此设置的 SDK 会停止发送洞察数据，服务器会丢弃旧版 SDK 发送的洞察数据。实验运行期间无法禁用。",
-      insightsBlockedByExperiments:
-        "以下实验正在运行，无法禁用洞察：{{names}}。请先停止这些实验。",
       insightsValue: {
         enabled: "已启用",
         disabled: "已禁用",
@@ -991,6 +1000,18 @@ export const zhFeatureFlags: typeof enFeatureFlags = {
       nameRequired: "请输入功能开关名称。",
       nameHelp: "便于识别此功能开关的名称。",
       tagsHelp: "使用标签整理和筛选功能开关。",
+      insightCollection: "评估数据收集",
+      insightCollectionHelp: "收集此开关的评估数据，用于数据分析和实验。",
+      enableInsights: "启用评估数据收集",
+      disableInsights: "关闭评估数据收集",
+      runningExperiments: "正在运行的实验",
+      runningExperimentsHelp:
+        "以下实验依赖此开关的评估数据。请先停止实验，再关闭评估数据收集。",
+      noRunningExperiments:
+        "此开关没有关联的运行中实验，你可以启用或关闭评估数据收集。",
+      experimentsLoadFailed: "无法加载运行中的实验。",
+      insightsBlocked:
+        "关联实验仍需要评估数据，无法关闭评估数据收集。请先停止实验。",
       lifecycle: "生命周期",
       archiveTitle: "归档功能开关",
       archiveHelp: "归档后将不再显示在活动列表中，之后仍可恢复。",

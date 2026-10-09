@@ -70,7 +70,7 @@ public class FeatureFlagController : ApiControllerBase
     /// </remarks>
     [HttpGet("{key}/running-experiments")]
     [Authorize(Permissions.CanAccessEnv)]
-    public async Task<ApiResponse<IReadOnlyList<ExperimentRef>>> GetRunningExperimentsAsync(Guid envId, string key)
+    public async Task<ApiResponse<IReadOnlyList<ExperimentReference>>> GetRunningExperimentsAsync(Guid envId, string key)
     {
         var request = new GetRunningExperiments
         {
@@ -288,6 +288,24 @@ public class FeatureFlagController : ApiControllerBase
 
         var revision = await Mediator.Send(request);
         return Ok(revision);
+    }
+
+    /// <summary>
+    /// Enable or disable insight collection for a feature flag
+    /// </summary>
+    [OpenApi]
+    [HttpPut("{key}/insight-collection")]
+    public async Task<ApiResponse<Guid>> UpdateInsightCollectionAsync(Guid envId, string key, UpdateInsightCollectionPayload payload)
+    {
+        var request = new UpdateInsightCollection
+        {
+            EnvId = envId,
+            Key = key,
+            Enabled = payload.Enabled,
+            Comment = payload.Comment
+        };
+
+        return Ok(await Mediator.Send(request));
     }
 
     /// <summary>

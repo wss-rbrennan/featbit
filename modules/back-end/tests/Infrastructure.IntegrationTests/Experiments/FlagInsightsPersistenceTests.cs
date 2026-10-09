@@ -50,7 +50,7 @@ public class FlagInsightsPersistenceTests(ExperimentProviderParityFixture fixtur
     [DockerTheory]
     [InlineData("Postgres")]
     [InlineData("MongoDb")]
-    public async Task GetRunningForFlagAsync_MixedRuns_ReturnsOnlyUnendedRunsOfThatFlag(string provider)
+    public async Task GetRunningExperimentsAsync_MixedRuns_ReturnsOnlyUnendedRunsOfThatFlag(string provider)
     {
         var envId = Guid.NewGuid();
         var now = DateTime.UtcNow;
@@ -69,7 +69,7 @@ public class FlagInsightsPersistenceTests(ExperimentProviderParityFixture fixtur
         await service.CreateRunAsync(envId, ended.Id, Run(now.AddDays(-2), now.AddDays(-1)));
         await service.CreateRunAsync(envId, otherFlagOpen.Id, Run(now.AddDays(-1), null));
 
-        var running = await service.GetRunningForFlagAsync(envId, flag.Id, now);
+        var running = await service.GetRunningExperimentsAsync(envId, flag.Id);
 
         Assert.Equal(
             new[] { open.Id, future.Id }.OrderBy(x => x),

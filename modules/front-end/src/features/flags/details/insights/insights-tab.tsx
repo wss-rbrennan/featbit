@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { ChevronLeft, ChevronRight, EyeOff, Search } from "lucide-react"
+import { ChevronLeft, ChevronRight, Info, Search } from "lucide-react"
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
@@ -13,7 +13,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -180,16 +185,25 @@ export function InsightsTab({
   return (
     <div className="space-y-6 py-6">
       {flag.insightsEnabled === false ? (
-        <Alert>
-          <EyeOff />
+        <Alert className="border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-50">
+          <Info />
           <AlertTitle>
             {t("featureFlags.detailsPage.insights.collectionDisabled")}
           </AlertTitle>
           <AlertDescription>
-            <Link to={settingsPath}>
-              {t("featureFlags.detailsPage.insights.openSettings")}
-            </Link>
+            {t(
+              "featureFlags.detailsPage.insights.collectionDisabledDescription"
+            )}
           </AlertDescription>
+          <AlertAction>
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link to={settingsPath} />}
+            >
+              {t("featureFlags.detailsPage.insights.openSettings")}
+            </Button>
+          </AlertAction>
         </Alert>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">

@@ -1,7 +1,6 @@
 using Domain.AuditLogs;
 using Application.Users;
 using Application.Bases.Models;
-using Application.Experiments;
 using Domain.FeatureFlags;
 using Domain.Policies;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
@@ -23,7 +22,6 @@ public class PatchFeatureFlagHandler(
     IFeatureFlagService flagService,
     IPermissionGuard permissionGuard,
     ICurrentUser currentUser,
-    IFlagInsightsGuard insightsGuard,
     IPublisher publisher)
     : IRequestHandler<PatchFeatureFlag, PatchResult>
 {
@@ -31,7 +29,6 @@ public class PatchFeatureFlagHandler(
     {
         var flag = await flagService.GetAsync(request.EnvId, request.Key);
         var dataChange = new DataChange(flag);
-        var wasInsightsEnabled = flag.InsightsEnabled;
 
         var error = string.Empty;
         request.Patch.ApplyTo(flag, jsonPatchError => error = jsonPatchError.ErrorMessage);
@@ -45,7 +42,6 @@ public class PatchFeatureFlagHandler(
         dataChange.To(flag);
 
         await permissionGuard.EnsureFlagChangeAllowedAsync(flag, dataChange, request.Permissions);
-        await insightsGuard.EnsureCanDisableInsightsAsync(wasInsightsEnabled, flag);
 
         await flagService.UpdateAsync(flag);
 

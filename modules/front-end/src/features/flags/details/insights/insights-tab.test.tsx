@@ -47,7 +47,7 @@ describe("InsightsTab", () => {
     renderInsights({ ...flag, insightsEnabled: false })
 
     expect(
-      screen.getByText("Insight collection is disabled for this flag")
+      screen.getByText("Insight collection is turned off")
     ).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Open settings" })).toHaveAttribute(
       "href",
@@ -58,13 +58,13 @@ describe("InsightsTab", () => {
   it("shows no notice when insights are enabled or the field is missing", () => {
     const { unmount } = renderInsights({ ...flag, insightsEnabled: true })
     expect(
-      screen.queryByText("Insight collection is disabled for this flag")
+      screen.queryByText("Insight collection is turned off")
     ).not.toBeInTheDocument()
     unmount()
 
     renderInsights(flag)
     expect(
-      screen.queryByText("Insight collection is disabled for this flag")
+      screen.queryByText("Insight collection is turned off")
     ).not.toBeInTheDocument()
   })
 })

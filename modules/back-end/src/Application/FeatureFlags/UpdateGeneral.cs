@@ -1,6 +1,5 @@
 using Application.AuditLogs;
 using Application.Bases;
-using Application.Experiments;
 using Application.Users;
 using Domain.AuditLogs;
 using Domain.Policies;
@@ -23,12 +22,6 @@ public class UpdateGeneralPayload : ResourceChangeRequest
     /// The collection of tags to set for the feature flag.
     /// </summary>
     public string[] Tags { get; set; }
-
-    /// <summary>
-    /// Whether evaluation insights are collected for the feature flag. Leave unset to keep the current value.
-    /// Cannot be set to false while an experiment on the flag is running.
-    /// </summary>
-    public bool? InsightsEnabled { get; set; }
 }
 
 public class UpdateGeneral : UpdateGeneralPayload, IRequest<Guid>
@@ -50,7 +43,6 @@ public class UpdateGeneral : UpdateGeneralPayload, IRequest<Guid>
         Name = payload.Name;
         Description = payload.Description;
         Tags = payload.Tags;
-        InsightsEnabled = payload.InsightsEnabled;
         Comment = payload.Comment;
         Permissions = permissions;
     }
@@ -70,7 +62,6 @@ public class UpdateGeneralHandler(
     IFeatureFlagService service,
     IPermissionGuard permissionGuard,
     ICurrentUser currentUser,
-    IFlagInsightsGuard insightsGuard,
     IPublisher publisher)
     : IRequestHandler<UpdateGeneral, Guid>
 {
@@ -83,11 +74,8 @@ public class UpdateGeneralHandler(
         var nameChanged = flag.Name != request.Name;
         var descriptionChanged = flag.Description != request.Description;
         var tagsChanged = !currentTags.ToHashSet().SetEquals(requestedTags);
-        var wasInsightsEnabled = flag.InsightsEnabled;
-        var insightsEnabled = request.InsightsEnabled ?? wasInsightsEnabled;
-        var insightsChanged = insightsEnabled != wasInsightsEnabled;
 
-        if (!nameChanged && !descriptionChanged && !tagsChanged && !insightsChanged)
+        if (!nameChanged && !descriptionChanged && !tagsChanged)
         {
             return flag.Revision;
         }
@@ -96,11 +84,9 @@ public class UpdateGeneralHandler(
             request.Name,
             request.Description,
             tagsChanged ? requestedTags : currentTags,
-            insightsEnabled,
             currentUser.Id
         );
         await permissionGuard.EnsureFlagChangeAllowedAsync(flag, dataChange, request.Permissions);
-        await insightsGuard.EnsureCanDisableInsightsAsync(wasInsightsEnabled, flag);
         await service.UpdateAsync(flag);
 
         var notification = new OnFeatureFlagChanged(

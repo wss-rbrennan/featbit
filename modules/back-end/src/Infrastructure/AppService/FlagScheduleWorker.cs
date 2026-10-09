@@ -1,4 +1,3 @@
-using Application.Bases.Exceptions;
 using Domain.AuditLogs;
 using Domain.FlagSchedules;
 using Microsoft.Extensions.DependencyInjection;
@@ -54,17 +53,6 @@ public class FlagScheduleWorker(IServiceProvider serviceProvider, ILogger<FlagSc
                     logger.LogInformation(
                         "{ScheduleId}:{ScheduleTitle}: Flag schedule has been applied.", schedule.Id,
                         schedule.Title
-                    );
-                }
-                catch (InsightsRequiredByExperimentException ex)
-                {
-                    // not retried: the schedule would disable insights that a running experiment needs
-                    schedule.Failed(schedule.CreatorId);
-                    await flagScheduleService.UpdateAsync(schedule);
-
-                    logger.LogWarning(
-                        "{ScheduleId}:{ScheduleTitle}: Flag schedule failed: it would disable insights required by running experiment(s) {ExperimentIds}.",
-                        schedule.Id, schedule.Title, string.Join(',', ex.Experiments.Select(x => x.Id))
                     );
                 }
                 catch (Exception ex)

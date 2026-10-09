@@ -39,7 +39,6 @@ export function updateFeatureFlagGeneral(
     name: string
     description: string
     tags: string[]
-    insightsEnabled?: boolean
   },
   comment = ""
 ) {
@@ -290,6 +289,22 @@ export function copyFeatureFlagSettings(
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ options }),
+    }
+  )
+}
+
+export function updateFeatureFlagInsightCollection(
+  envId: string,
+  key: string,
+  enabled: boolean,
+  comment: string
+) {
+  return fetchApi<string>(
+    `${flagsPath(envId)}/${encodeURIComponent(key)}/insight-collection`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled, comment }),
     }
   )
 }

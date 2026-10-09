@@ -594,7 +594,6 @@ export function FlagDetailsPage() {
             canUpdateName={can("UpdateFlagName")}
             canUpdateDescription={can("UpdateFlagDescription")}
             canUpdateTags={can("UpdateFlagTags")}
-            canToggle={can("ToggleFlag")}
             canArchive={can("ArchiveFlag")}
             canRestore={can("RestoreFlag")}
             canDelete={can("DeleteFlag")}

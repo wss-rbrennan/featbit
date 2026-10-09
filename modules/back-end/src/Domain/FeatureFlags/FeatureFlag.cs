@@ -193,11 +193,20 @@ public class FeatureFlag : FullAuditedEntity
         return dataChange.To(this);
     }
 
+    public DataChange UpdateInsightCollection(bool enabled, Guid currentUserId)
+    {
+        var dataChange = new DataChange(this);
+
+        InsightsEnabled = enabled;
+        MarkAsUpdated(currentUserId);
+
+        return dataChange.To(this);
+    }
+
     public DataChange UpdateGeneral(
         string name,
         string description,
         string[] tags,
-        bool insightsEnabled,
         Guid currentUserId)
     {
         var dataChange = new DataChange(this);
@@ -205,7 +214,6 @@ public class FeatureFlag : FullAuditedEntity
         Name = name;
         Description = description;
         Tags = tags ?? [];
-        InsightsEnabled = insightsEnabled;
         MarkAsUpdated(currentUserId);
 
         return dataChange.To(this);

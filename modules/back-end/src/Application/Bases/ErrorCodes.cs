@@ -12,6 +12,7 @@ public static class ErrorCodes
     public const string Conflict = nameof(Conflict);
     public const string NameHasBeenUsed = nameof(NameHasBeenUsed);
     public const string KeyHasBeenUsed = nameof(KeyHasBeenUsed);
+    public const string BusinessRuleViolation = nameof(BusinessRuleViolation);
 
     // end user
     public const string EndUserLimitExceeded = nameof(EndUserLimitExceeded);
@@ -33,7 +34,6 @@ public static class ErrorCodes
 
     // feature flag
     public const string CannotDeleteUnarchivedFeatureFlag = nameof(CannotDeleteUnarchivedFeatureFlag);
-    public const string InsightsRequiredByRunningExperiment = "insights_required_by_running_experiment";
     public const string InsightsDisabled = "insights_disabled";
 
     // triggers

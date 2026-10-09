@@ -548,8 +548,10 @@ public class ExperimentService(
             .ToArray();
     }
 
-    public async Task<IReadOnlyList<ExperimentRef>> GetRunningForFlagAsync(Guid envId, Guid flagId, DateTime now)
+    public async Task<IReadOnlyList<ExperimentReference>> GetRunningExperimentsAsync(Guid envId, Guid flagId)
     {
+        var now = DateTime.UtcNow;
+
         var experiments = await dbContext.Set<Experiment>()
             .AsNoTracking()
             .Where(x => x.EnvId == envId && x.FlagId == flagId)
@@ -570,7 +572,7 @@ public class ExperimentService(
 
         return experiments
             .Where(x => runningIds.Contains(x.Id))
-            .Select(x => new ExperimentRef(x.Id, x.Name))
+            .Select(x => new ExperimentReference(x.Id, x.Name))
             .ToArray();
     }
 
