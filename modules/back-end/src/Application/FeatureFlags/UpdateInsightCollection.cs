@@ -13,6 +13,10 @@ public class UpdateInsightCollectionPayload : ResourceChangeRequest
 
 public class UpdateInsightCollection : UpdateInsightCollectionPayload, IRequest<Guid>
 {
+    public Guid WorkspaceId { get; set; }
+
+    public Guid OrgId { get; set; }
+
     public Guid EnvId { get; set; }
 
     public string Key { get; set; }
@@ -48,7 +52,8 @@ public class UpdateInsightCollectionHandler(
         await service.UpdateAsync(flag);
 
         var notification = new OnFeatureFlagChanged(
-            flag, Operations.Update, dataChange, currentUser.Id, comment: request.Comment
+            flag, request.WorkspaceId, request.OrgId, Operations.Update, dataChange, currentUser.Id,
+            comment: request.Comment
         );
         await publisher.Publish(notification, cancellationToken);
 
